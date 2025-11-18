@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fotos no Mapa</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/rolezinho-app/sw.js');
+  }
+</script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 10px; }
+  #map { height: 80vh; width: 100%; border: 2px solid #ccc; border-radius: 10px; margin-bottom:100px; }
+  @media (max-width: 768px) {
+    body { margin: 0; padding: 0; }
+    #map { height: 65vh !important; width: 100%; }
+    #uploadBtn, #saveRoute {
+      width: 90% !important;
+      margin: 8px auto !important;
+      display: block !important;
+      font-size: 18px !important;
+      padding: 14px !important;
+    }
+  }
+  input, button { margin: 5px; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
+  img.thumbnail { width: 100px; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+
+<div id="onboarding" style="position:fixed; inset:0; background:black; color:white; z-index:99999; display:none; flex-direction:column; justify-content:center; align-items:center; gap:30px; text-align:center; padding:40px;">
+  <h1 style="font-size:60px; margin-bottom:20px; width:90%; max-width:600px; text-align:center;">Bem-vindo ao App Rolezinho</h1>
+  <p style="font-size:32px; max-width:600px; width:90%; text-align:center; line-height:1.4;">Crie mapas dos seus rolês a partir de suas fotos.</p>
+  <button id="obNext1" style="padding:12px 24px; font-size:20px; border-radius:10px;">Começar</button>
+</div>
+
+<div id="onboarding2" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:40px 20px; text-align:center; gap:40px;">
+  <h2 style="font-size:60px; width:90%; max-width:600px; text-align:center; margin:0 auto;">Como funciona</h2>
+  <p style="font-size:32px; width:90%; max-width:600px; text-align:center; line-height:1.6; margin:0 auto;">
+    1 - Envie suas fotos<br>
+    2 - O mapa do seu rolezinho é criado automaticamente<br>
+    3 - Compartilhe o seu rolezinho com sua galera
+  </p>
+  <button id="obNext2" style="margin-top:50px; padding:14px 28px; font-size:24px; border-radius:12px;">Continuar</button>
+</div>
+
+<div id="onboarding3" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:flex-start; align-items:center; padding:20px 20px; text-align:center; gap:16px;">
+  <h2 style="font-size:40px; width:90%; max-width:600px; text-align:center;">Crie seu Perfil</h2>
+  <p style="margin-top:10px; font-size:22px; width:90%; max-width:600px; text-align:center; line-height:1.4;">Digite seu nome e username:</p>
+  <input id="onName" placeholder="Seu nome" style="margin-top:10px; padding:12px; width:90%; max-width:500px; border-radius:10px; font-size:18px;">
+  <input id="onUser" placeholder="@username" style="margin-top:10px; padding:12px; width:90%; max-width:500px; border-radius:10px; font-size:18px;">
+  <input id="onPhone" placeholder="Telefone" style="margin-top:10px; padding:12px; width:90%; max-width:500px; border-radius:10px; font-size:18px;">
+  <input id="onEmail" placeholder="Email" style="margin-top:10px; padding:12px; width:90%; max-width:500px; border-radius:10px; font-size:18px;">
+  <button id="finishOnboarding" style="margin-top:20px; padding:14px 20px; font-size:20px; border-radius:10px; width:90%; max-width:300px; align-self:center; margin-bottom:20px;">Concluir</button>
+</div>
+
+<div id="profileModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); color:white; z-index:999999; padding:40px;">
+  <h2>Meu Perfil</h2>
+  <p><b>Nome:</b> <span id="profileName"></span></p>
+  <p><b>Username:</b> <span id="profileUser"></span></p>
+  <p><b>Telefone:</b> <span id="profilePhone"></span></p>
+  <p><b>Email:</b> <span id="profileEmail"></span></p>
+  <div style="margin-top:20px;">
+    <p><b>Foto de Perfil:</b></p>
+    <img id="profilePhotoPreview" src="" style="width:100px; height:100px; border-radius:50%; object-fit:cover; display:none; margin-bottom:10px;">
+    <input type="file" id="profilePhotoInput" accept="image/*" style="padding:8px 12px; border-radius:6px;">
+  </div>
+  <h3>Meus Rolês</h3>
+  <div id="profileRoles" style="margin-top:20px; max-height:60vh; overflow-y:auto; padding-right:10px;"></div>
+  <button id="closeProfile" style="margin-top:20px; padding:8px 14px;">Fechar</button>
+</div>
+
+<input type="file" id="upload" multiple accept="image/*,video/*" style="display:none;">
+<div id="bottomBar" style="position:fixed; bottom:0; left:0; width:100%; background:#000; padding:12px 0; display:none; justify-content:center; gap:10px; z-index:100000;">
+  <button id="uploadBtn" style="padding:12px 24px; font-size:18px; border-radius:12px; background:#111; color:white; border:2px solid #444; display:inline-flex; align-items:center; gap:10px;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2l4 4h-3v6h-2V6H8l4-4zm-7 14v4h14v-4h2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4h2z"/>
+    </svg>
+    Escolher Mídias
+  </button>
+  <button id="saveRoute" style="display:none; opacity:0.4; pointer-events:none; padding:12px 24px; font-size:18px; border-radius:12px; background:#111; color:white; border:2px solid #444; margin-left:10px;">
+    Salvar Rolê
+  </button>
+  <button id="openProfile" style="padding:12px 24px; font-size:18px; border-radius:12px; background:#111; color:white; border:2px solid #444; display:flex; align-items:center; justify-content:center;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/>
+    </svg>
+  </button>
+  <button id="shareOpenedRole" style="display:none; padding:12px 24px; font-size:18px; border-radius:12px; background:#0066ff; color:white; border:2px solid #0044cc;">
+    Compartilhar Rolê
+  </button>
+</div>
+<script>
+document.getElementById("uploadBtn").addEventListener("click", () => {
+  document.getElementById("upload").click();
+});
+</script>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+
+// --- IMAGE COMPRESSION FUNCTION ---
+async function compressImage(dataUrl, maxSize = 300) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.src = dataUrl;
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // --- AUTOLOAD DE ROLÊ VIA LINK COMPARTILHADO ---
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("role")) {
+    try {
+      const decoded = JSON.parse(LZString.decompressFromEncodedURIComponent(urlParams.get("role")));
+
+      // Show shared meta box if available
+      const metaBox = document.getElementById("sharedMeta");
+      if (decoded.creator) {
+        metaBox.innerHTML =
+          `<b>Criado por:</b> ${decoded.creator}<br>` +
+          `<b>Data:</b> ${new Date(decoded.data).toLocaleString()}<br>` +
+          `<b>Pontos no rolê:</b> ${decoded.totalPoints}`;
+        metaBox.style.display = "block";
+      }
+
+      // limpar caminho atual
+      waypoints = decoded.waypoints || [];
+      markers = [];
+
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
+      });
+
+      const bounds = [];
+
+      waypoints.forEach((wp, i) => {
+        const marker = L.marker([wp.lat, wp.lon]).addTo(map);
+        markers.push(marker);
+
+        const mediaHTML = wp.isVideo
+          ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline></video>`
+          : `<img src="${wp.thumbnail}" class="thumbnail">`;
+
+        marker.bindPopup(`
+          <div style="text-align:center;">
+            <b>${wp.name}</b><br>
+            ${mediaHTML}<br>
+            <button onclick="focusMarker(${i - 1})" style="margin-right:10px;">⬅️</button>
+            <button onclick="focusMarker(${i + 1})">➡️</button>
+          </div>`);
+
+        marker.on("popupopen", () => {
+          map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+        });
+
+        bounds.push([wp.lat, wp.lon]);
+      });
+
+      if (bounds.length > 0) {
+        map.flyToBounds(bounds, { padding: [50,50], animate: true, duration: 0.7 });
+      }
+
+      if (waypoints.length > 1) {
+        const coords = waypoints.map(w => [w.lat, w.lon]);
+        window.currentRoute = L.polyline(coords, {
+          color: 'blue',
+          weight: 3,
+          fill: false,
+          fillOpacity: 0
+        }).addTo(map);
+      }
+
+      console.log("Rolê compartilhado carregado com sucesso.");
+    } catch (e) {
+      console.error("Erro carregando rolê compartilhado:", e);
+    }
+  }
+  // --- FIM DO AUTOLOAD ---
+  const ob1 = document.getElementById("onboarding");
+  const ob2 = document.getElementById("onboarding2");
+  const ob3 = document.getElementById("onboarding3");
+
+  if (!localStorage.getItem("onboardingDone")) {
+    ob1.style.display = "flex";
+    ob2.style.display = "none";
+    ob3.style.display = "none";
+  } else {
+    ob1.style.display = "none";
+    ob2.style.display = "none";
+    ob3.style.display = "none";
+  }
+
+  document.getElementById("obNext1").addEventListener("click", () => {
+    ob1.style.display = "none";
+    ob2.style.display = "block";
+  });
+
+  document.getElementById("obNext2").addEventListener("click", () => {
+    ob2.style.display = "none";
+    ob3.style.display = "block";
+  });
+
+  document.getElementById("finishOnboarding").addEventListener("click", () => {
+      const name = document.getElementById("onName").value.trim();
+      const user = document.getElementById("onUser").value.trim();
+      const phone = document.getElementById("onPhone").value.trim();
+      const email = document.getElementById("onEmail").value.trim();
+      if (!name || !user) {
+        alert("Preencha nome e username.");
+        return;
+      }
+      if (!phone || !email) { alert("Preencha telefone e email."); return; }
+      localStorage.setItem("profileName", name);
+      localStorage.setItem("profileUser", user);
+      localStorage.setItem("profilePhone", phone);
+      localStorage.setItem("profileEmail", email);
+      document.getElementById("bottomBar").style.display = "flex";
+      ob3.style.display = "none";
+      localStorage.setItem("onboardingDone", "1");
+  });
+}
+
+);
+
+function loadRole(id) {
+  window.currentOpenedRoleId = id;
+  document.getElementById("shareOpenedRole").style.display = "inline-block";
+  const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
+  const role = saved.find(r => r.id === id);
+  if (!role) return;
+
+  // Clear map markers and route
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
+  });
+
+  waypoints = role.waypoints;
+  markers = [];
+
+  const bounds = [];
+
+  waypoints.forEach((wp, i) => {
+    const marker = L.marker([wp.lat, wp.lon]).addTo(map);
+    markers.push(marker);
+
+    const mediaHTML = wp.isVideo
+      ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline></video>`
+      : `<img src="${wp.thumbnail}" class="thumbnail">`;
+
+    marker.bindPopup(`
+      <div style="text-align:center;">
+        <b>${wp.name}</b><br>
+        ${mediaHTML}<br>
+        <button onclick="focusMarker(${i - 1})" style="margin-right:10px;">⬅️</button>
+        <button onclick="focusMarker(${i + 1})">➡️</button>
+      </div>
+    `);
+    marker.on("popupopen", () => {
+      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+    });
+    marker.on("click", () => {
+      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+    });
+
+    bounds.push([wp.lat, wp.lon]);
+  });
+
+  if (bounds.length > 0) {
+    map.flyToBounds(bounds, { padding: [50,50], animate: true, duration: 0.7 });
+  }
+
+  if (waypoints.length > 1) {
+    const coords = waypoints.map(wp => [wp.lat, wp.lon]);
+    window.currentRoute = L.polyline(coords, {
+      color: 'blue',
+      weight: 3,
+      fill: false,
+      fillOpacity: 0,
+      bubblingMouseEvents: false
+    }).addTo(map);
+  }
+}
+
+const map = L.map('map').setView([0,0], 2);
+
+L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+  attribution: '© CARTO © OpenStreetMap',
+  detectRetina: false
+}).addTo(map);
+
+let waypoints = [];
+let markers = [];
+
+function focusMarker(index) {
+  if (!markers.length) return;
+  const total = markers.length;
+  const i = ((index % total) + total) % total; // loop circular
+  const m = markers[i];
+  map.setView(m.getLatLng(), 15, { animate: true });
+  m.openPopup();
+}
+
+document.getElementById('upload').addEventListener('change', async (e) => {
+  waypoints = [];
+  const files = e.target.files;
+  const bounds = [];
+
+  // Limpar mapa
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker) map.removeLayer(layer);
+  });
+
+  const saveBtn = document.getElementById("saveRoute");
+  saveBtn.style.display = "inline-block";
+  saveBtn.disabled = false;
+  saveBtn.style.opacity = "1";
+  saveBtn.style.pointerEvents = "auto";
+
+  for (let file of files) {
+    // Ignorar vídeos maiores que 4 segundos
+    if (file.type.startsWith("video")) {
+      const videoURL = URL.createObjectURL(file);
+      const video = document.createElement("video");
+      video.src = videoURL;
+
+      // Aguarda carregar metadata
+      await new Promise(res => {
+        video.onloadedmetadata = () => res();
+      });
+
+      if (video.duration > 4) {
+        console.warn("Vídeo ignorado (mais de 4s):", file.name);
+        continue;
+      }
+    }
+
+    // Extrair GPS (funciona para fotos, Live Photos e vídeos .mov do iPhone)
+    const exif = await window.exifr.gps(file);
+    if (exif?.latitude && exif?.longitude) {
+      // Compress thumbnail before storing
+      let rawURL = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+      const url = await compressImage(rawURL); // compress thumbnail
+
+      waypoints.push({
+        lat: exif.latitude,
+        lon: exif.longitude,
+        name: file.name,
+        thumbnail: url,
+        isVideo: file.type.startsWith("video")
+      });
+      // Store compressed thumbnail for double safety
+      waypoints[waypoints.length - 1].thumbnailCompressed = url;
+
+      const ts = exif?.DateTimeOriginal || file.lastModified || Date.now();
+      waypoints[waypoints.length - 1].ts = new Date(ts);
+
+      const index = waypoints.length - 1;
+      const marker = L.marker([exif.latitude, exif.longitude]).addTo(map);
+      markers[index] = marker;
+
+      const mediaHTML = file.type.startsWith("video")
+        ? `<video src="${url}" class="thumbnail" autoplay loop muted playsinline></video>`
+        : `<img src="${url}" class="thumbnail">`;
+
+      const popupHTML = `
+        <div style="text-align:center;">
+          <b>${file.name}</b><br>
+          ${mediaHTML}<br>
+          <button onclick="focusMarker(${index - 1})" style="margin-right:10px;">⬅️</button>
+          <button onclick="focusMarker(${index + 1})">➡️</button>
+        </div>
+      `;
+      marker.bindPopup(popupHTML);
+      marker.on("popupopen", () => {
+        map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+      });
+      marker.on("click", () => {
+        map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+      });
+
+      bounds.push([exif.latitude, exif.longitude]);
+    }
+  }
+
+  // Ordenar waypoints por timestamp (mais antigo → mais novo)
+  waypoints.sort((a, b) => a.ts - b.ts);
+
+  // Recriar markers do zero na ordem cronológica (garante loop completo)
+  markers = [];
+  map.eachLayer(layer => {
+    if (layer instanceof L.Marker) map.removeLayer(layer);
+  });
+
+  waypoints.forEach((wp, i) => {
+    const marker = L.marker([wp.lat, wp.lon]).addTo(map);
+    markers.push(marker);
+
+    const mediaHTML = wp.isVideo
+      ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline></video>`
+      : `<img src="${wp.thumbnail}" class="thumbnail">`;
+
+    const popupHTML = `
+      <div style="text-align:center;">
+        <b>${wp.name}</b><br>
+        ${mediaHTML}<br>
+        <button onclick="focusMarker(${i - 1})" style="margin-right:10px;">⬅️</button>
+        <button onclick="focusMarker(${i + 1})">➡️</button>
+      </div>
+    `;
+    marker.bindPopup(popupHTML);
+    marker.on("popupopen", () => {
+      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+    });
+    marker.on("click", () => {
+      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+    });
+  });
+
+  // Criar rota somente depois que o zoom terminar
+  let tempRouteCoords = null;
+
+  if (waypoints.length > 1) {
+      tempRouteCoords = waypoints.map(wp => [wp.lat, wp.lon]);
+  }
+
+  // Remover rota anterior
+  if (window.currentRoute) {
+      map.removeLayer(window.currentRoute);
+      window.currentRoute = null;
+  }
+
+  // Escutar zoomend UMA vez e só então desenhar rota
+  map.once("moveend", () => {
+      if (tempRouteCoords) {
+          window.currentRoute = L.polyline(tempRouteCoords, {
+              color: "blue",
+              weight: 3,
+              fill: false,
+              fillOpacity: 0,
+              bubblingMouseEvents: false
+          }).addTo(map);
+      }
+  });
+
+  // Ativar zoom e centralização antes da rota aparecer
+  if (bounds.length > 0) {
+      map.flyToBounds(bounds, { padding: [50,50], animate: true, duration: 0.7 });
+  }
+});
+// Salvar rota no localStorage
+document.getElementById('saveRoute').addEventListener('click', () => {
+  try {
+    console.log("DEBUG: saveRoute clicked. Waypoints:", waypoints);
+    if (!waypoints || !waypoints.length) {
+      alert("Nenhum rolê para salvar.");
+      return;
+    }
+
+    const title = prompt("Dê um título ao seu rolê:");
+    if (!title) {
+      alert("Título obrigatório.");
+      return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
+
+    const role = {
+      id: Date.now(),
+      titulo: title,
+      data: new Date().toISOString(),
+      waypoints: waypoints.map(wp => ({
+        lat: wp.lat ?? null,
+        lon: wp.lon ?? null,
+        name: wp.name || "",
+        thumbnail: wp.thumbnailCompressed || wp.thumbnail || null,
+        isVideo: !!wp.isVideo,
+        ts: wp.ts || null
+      }))
+    };
+
+    console.log("DEBUG: Saving role:", role);
+    saved.push(role);
+    localStorage.setItem("rolesSalvos", JSON.stringify(saved));
+    console.log("DEBUG: rolesSalvos now:", JSON.parse(localStorage.getItem("rolesSalvos")));
+
+    alert("Rolê salvo com sucesso!");
+
+    // disable button until new media uploaded
+    const saveBtn = document.getElementById("saveRoute");
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.style.opacity = "0.4";
+      saveBtn.style.pointerEvents = "none";
+    }
+
+    // refresh profile list if modal open
+    try { renderProfileRoles(); } catch(e) { console.warn('renderProfileRoles missing', e); }
+  } catch (err) {
+    console.error('Erro ao salvar rolê:', err);
+    alert('Erro ao salvar rolê. Veja o console para mais detalhes.');
+  }
+});
+
+
+// --- STORY EDITOR TYPE SHARE AURA ---
+document.addEventListener("DOMContentLoaded", () => {
+  const storyEditor = document.getElementById("storyEditor");
+  const storyCanvas = document.getElementById("storyCanvas");
+
+  if (!storyCanvas) {
+    console.error("storyCanvas not found — story editor not initialized.");
+    return;
+  }
+
+  const ctx = storyCanvas.getContext("2d");
+
+  document.getElementById("closeStoryEditor").addEventListener("click", () => {
+    storyEditor.style.display = "none";
+  });
+
+  document.getElementById("exportStory").addEventListener("click", () => {
+    storyCanvas.toBlob(blob => saveAs(blob, "role-story.jpg"));
+  });
+});
+
+function renderProfileRoles() {
+  const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
+  document.getElementById("profileRoles").innerHTML = saved.map(r => `
+    <div style="padding:12px; background:#111; border:1px solid #555; border-radius:10px; margin:10px 0; color:white;">
+      <b>${r.titulo || ("Rolê " + r.id)}</b><br>
+      <span style="font-size:14px; opacity:0.8;">${new Date(r.data).toLocaleString()}</span><br>
+
+      <button onclick="document.getElementById('profileModal').style.display='none'; loadRole(${r.id});"
+        style="margin-top:10px; padding:6px 10px; border-radius:6px; background:#333; color:white; border:1px solid:#666;">
+        Abrir
+      </button>
+
+      <button onclick="editarRole(${r.id})"
+        style="margin-top:10px; margin-left:10px; padding:6px 10px; border-radius:6px; background:#222; color:white; border:1px solid:#555;">
+        Editar
+      </button>
+
+      <button onclick="compartilharRole(${r.id})"
+        style="margin-top:10px; margin-left:10px; padding:6px 10px; border-radius:6px; background:#0066ff; color:white; border:1px solid:#0044cc;">
+        Compartilhar
+      </button>
+    </div>
+  `).join("");
+}
+
+console.log("Profile button found:", document.getElementById("openProfile"));
+document.getElementById("openProfile").addEventListener("click", () => {
+  console.log("Opening profile modal");
+  const m = document.getElementById("profileModal");
+  document.getElementById("profileName").textContent = localStorage.getItem("profileName") || "—";
+  document.getElementById("profileUser").textContent = localStorage.getItem("profileUser") || "—";
+  document.getElementById("profilePhone").textContent = localStorage.getItem("profilePhone") || "—";
+  document.getElementById("profileEmail").textContent = localStorage.getItem("profileEmail") || "—";
+  const photo = localStorage.getItem("profilePhoto");
+  const pp = document.getElementById("profilePhotoPreview");
+  if (photo) { pp.src = photo; pp.style.display = "block"; } else { pp.style.display = "none"; }
+  renderProfileRoles();
+  m.style.display = "block";
+  m.style.zIndex = "999999";
+});
+
+document.getElementById("shareOpenedRole").addEventListener("click", () => {
+  if (window.currentOpenedRoleId) {
+    compartilharRole(window.currentOpenedRoleId);
+  }
+});
+
+document.getElementById("closeProfile").addEventListener("click", () => {
+  document.getElementById("profileModal").style.display = "none";
+});
+
+function compartilharRole(id) {
+  const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
+  const role = saved.find(r => r.id === id);
+  if (!role) return;
+
+  const payload = {
+    titulo: role.titulo,
+    waypoints: role.waypoints,
+    creator: localStorage.getItem("profileUser") || "Usuário",
+    data: role.data,
+    totalPoints: role.waypoints.length
+  };
+
+  const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
+  const shareURL = window.location.origin + window.location.pathname + "?role=" + encoded;
+
+  navigator.clipboard.writeText(shareURL).then(() => {
+    alert("Link do rolê copiado!");
+  });
+}
+
+function editarRole(id) {
+  const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
+  const roleIndex = saved.findIndex(r => r.id === id);
+  if (roleIndex === -1) {
+    alert("Rolê não encontrado.");
+    return;
+  }
+
+  const novoTitulo = prompt("Editar título do rolê:", saved[roleIndex].titulo || "");
+  if (!novoTitulo) return;
+
+  saved[roleIndex].titulo = novoTitulo;
+  localStorage.setItem("rolesSalvos", JSON.stringify(saved));
+
+  try { renderProfileRoles(); } catch(e) {}
+  alert("Título atualizado!");
+}
+// Foto de perfil
+document.getElementById("profilePhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    localStorage.setItem("profilePhoto", reader.result);
+    const pp = document.getElementById("profilePhotoPreview");
+    pp.src = reader.result;
+    pp.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+
+<div id="storyEditor" style="display:none; position:fixed; inset:0; background:black; z-index:9999; padding:20px;">
+  <button id="closeStoryEditor" style="position:absolute; top:20px; right:20px; z-index:10000; padding:8px 14px;">Fechar</button>
+  <div id="storyCanvasWrapper" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;">
+    <canvas id="storyCanvas" width="1080" height="1920" style="background:black; border:2px solid #444;"></canvas>
+  </div>
+  <button id="exportStory" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); padding:10px 18px;">Exportar Story</button>
+</div>
+<div id="sharedMeta" style="display:none; width:100%; padding:20px; background:#000; color:white; text-align:center; font-size:18px; line-height:1.5;"></div>
+</body>
+</html>
