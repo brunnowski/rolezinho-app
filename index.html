@@ -828,7 +828,6 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const role = saved.find(r => r.id === id);
     if (!role) return;
 
-    // Adicionar informações do criador
     const payload = {
       titulo: role.titulo,
       waypoints: role.waypoints,
@@ -838,14 +837,12 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       createdAt: role.data
     };
 
-    // Compress payload into a SHORT hash
     const json = JSON.stringify(payload);
     const compressed = LZString.compressToBase64(json)
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
 
-    // Base URL always GitHub Pages–safe
     let base = window.location.origin + window.location.pathname;
     base = base.replace(/index\.html$/i, "");
     base = base.replace(/\/+$/, "");
@@ -855,67 +852,71 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     if (navigator.share) {
       navigator.share({
         title: `Rolê: ${role.titulo}`,
-        text: `Confira meu rolê "${role.titulo}" no mapa! 🗺️`,
+        text: `Confira meu rolê "${role.titulo}"!`,
         url: shareURL
-      }).catch(err => console.log('Erro ao compartilhar:', err));
-    } else {
-      navigator.clipboard.writeText(shareURL).then(() => {
-        // Mostrar modal de sucesso com preview
-        showShareSuccessModal(shareURL, role.titulo);
+      }).then(() => {}).catch(() => {
+        showUniversalShareModal(shareURL, role.titulo);
       });
+    } else {
+      showUniversalShareModal(shareURL, role.titulo);
     }
   };
 
-  function showShareSuccessModal(url, titulo) {
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.95);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 24px;
-      color: white;
-      text-align: center;
-    `;
-    
-    modal.innerHTML = `
-      <div style="max-width: 400px; width: 100%;">
-        <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
-        <h2 style="margin: 0 0 12px; font-size: 24px;">Link Copiado!</h2>
-        <p style="opacity: 0.8; margin-bottom: 24px;">
-          Seu rolê "${titulo}" está pronto para ser compartilhado!
-        </p>
-        
-        <div style="background: #111; border: 1px solid #333; border-radius: 12px; padding: 16px; margin-bottom: 24px; word-break: break-all; font-size: 12px; font-family: monospace;">
-          ${url}
-        </div>
-        
-        <p style="opacity: 0.7; font-size: 14px; margin-bottom: 24px;">
-          Cole e envie este link para seus amigos. Eles poderão visualizar seu rolê no mapa! 🗺️
-        </p>
-        
-        <button id="closeShareModal" style="width: 100%; padding: 14px; background: #0066ff; border: none; border-radius: 12px; color: white; font-size: 16px; font-weight: 600;">
-          Entendi
-        </button>
-      </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    document.getElementById('closeShareModal').addEventListener('click', () => {
-      modal.remove();
-    });
-    
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
-  }
+
+// Universal share modal helper
+function showUniversalShareModal(url, titulo) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.9);
+    display:flex; justify-content:center; align-items:center;
+    z-index:99999; color:white; padding:20px; text-align:center;
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  `;
+
+  modal.innerHTML = `
+    <div style="max-width:400px; width:100%;">
+      <h2 style="margin-bottom:16px;">Compartilhar Rolê</h2>
+      <p style="opacity:0.8; margin-bottom:16px;">${titulo}</p>
+
+      <div style="
+        background:#111; border:1px solid #333;
+        padding:12px; border-radius:10px; margin-bottom:20px;
+        font-size:12px; font-family:monospace; word-break:break-all;
+      ">${url}</div>
+
+      <button id="btnCopyLink" style="width:100%; padding:12px; background:#0066ff; color:white; border:none; border-radius:12px; margin-bottom:10px;">
+        Copiar Link
+      </button>
+
+      <button id="btnOpenLink" style="width:100%; padding:12px; background:#333; color:white; border:none; border-radius:12px;">
+        Abrir Link
+      </button>
+
+      <button id="closeShareModal" style="margin-top:20px; background:none; border:none; color:white; opacity:0.7; font-size:14px;">
+        Fechar
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  document.getElementById("btnCopyLink").addEventListener("click", () => {
+    const temp = document.createElement("textarea");
+    temp.value = url;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    temp.remove();
+    alert("Link copiado!");
+  });
+
+  document.getElementById("btnOpenLink").addEventListener("click", () => {
+    window.open(url, "_blank");
+  });
+
+  document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
+  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
+}
 
   // Helper functions
   function getBaseURL() {
