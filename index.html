@@ -508,17 +508,16 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 
   // Autoload shared role
   function autoloadSharedRole() {
-    const hash = window.location.hash.replace(/^#/, "");
-    if (hash.length > 0) {
-      try {
-        const decodedJSON = LZString.decompressFromBase64(hash.replace(/-/g, "+").replace(/_/g, "/"));
-        const decoded = JSON.parse(decodedJSON);
-        // Mostrar interface de visualização compartilhada
-        showSharedRoleView(decoded);
-      } catch (e) {
-        console.error("Erro carregando rolê compartilhado:", e);
-        alert("Erro ao carregar o rolê compartilhado. Link inválido.");
-      }
+    // --- Shortlink loader ---
+    const shortId = new URLSearchParams(window.location.search).get("s");
+    if (shortId) {
+        const shortPayloads = JSON.parse(localStorage.getItem("shortPayloads") || "{}");
+        const payload = shortPayloads[shortId];
+        if (payload) {
+            showSharedRoleView(payload);
+        } else {
+            alert("Rolê não encontrado ou expirado.");
+        }
     }
   }
 
@@ -702,7 +701,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     waypoints = data;
     renderWaypoints();
     // Se é um rolê compartilhado, não mostrar botão de compartilhar
-    const isShared = window.location.hash.length > 1;
+    const isShared = new URLSearchParams(window.location.search).has("role");
     if (!isShared) {
       document.getElementById("shareRoute").style.display = "inline-flex";
     }
@@ -828,23 +827,26 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const role = saved.find(r => r.id === id);
     if (!role) return;
 
-    const payload = {
-      titulo: role.titulo,
-      waypoints: role.waypoints,
-      creatorName: localStorage.getItem("profileName") || "Anônimo",
-      creatorPhoto: localStorage.getItem("profilePhoto") || null,
-      creatorUser: localStorage.getItem("profileUser") || null,
-      createdAt: role.data
+    // --- Shortlink via localStorage Hash ---
+    // Avoid long URLs: only share a 6‑char key
+    const shortId = Math.random().toString(36).substring(2, 8);
+
+    // Store full payload locally so the link stays tiny
+    const shortPayloads = JSON.parse(localStorage.getItem("shortPayloads") || "{}");
+    shortPayloads[shortId] = {
+        titulo: role.titulo,
+        waypoints: role.waypoints,
+        creatorName: localStorage.getItem("profileName") || "Anônimo",
+        creatorPhoto: localStorage.getItem("profilePhoto") || null,
+        creatorUser: localStorage.getItem("profileUser") || null,
+        createdAt: role.data
     };
+    localStorage.setItem("shortPayloads", JSON.stringify(shortPayloads));
 
-    const json = JSON.stringify(payload);
-    const compressed = LZString.compressToUTF16(json);
-
+    // Short URL
     let base = window.location.origin + window.location.pathname;
-    base = base.replace(/index\.html$/i, "");
-    base = base.replace(/\/+$/, "");
-
-    const shareURL = `${base}/#${compressed}`;
+    base = base.replace(/index\.html$/i, "").replace(/\/+$/, "");
+    const shareURL = `${base}/?s=${shortId}`;
 
     if (navigator.share) {
       navigator.share({
