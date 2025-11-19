@@ -1,30 +1,30 @@
 {
   "name": "Rolezinho - Map your moments",
   "short_name": "Rolezinho",
-  "start_url": "/rolezinho-app/index.html",
-  "scope": "/rolezinho-app/",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "theme_color": "#000000",
   "background_color": "#000000",
   "description": "Create and share map-based stories from your photos and short videos.",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "icons/apple-touch-icon.png",
+      "src": "./icons/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "icons/maskable-icon.png",
+      "src": "./icons/maskable-icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -34,7 +34,7 @@
     {
       "name": "Criar Rolê",
       "short_name": "Criar",
-      "url": "/rolezinho-app/index.html",
+      "url": "./index.html",
       "description": "Comece um novo rolê"
     }
   ]
