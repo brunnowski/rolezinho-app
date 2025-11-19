@@ -838,10 +838,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     };
 
     const json = JSON.stringify(payload);
-    const compressed = LZString.compressToBase64(json)
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const compressed = LZString.compressToUTF16(json);
 
     let base = window.location.origin + window.location.pathname;
     base = base.replace(/index\.html$/i, "");
