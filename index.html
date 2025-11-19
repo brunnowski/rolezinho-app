@@ -21,9 +21,51 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="manifest" href="manifest.json">
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+  } else {
+    console.warn('Service worker not registered (insecure or unsupported protocol).');
   }
+/* --- PATCH 5.4-D3 — Keyboard Detection (evitar overlap com teclado) --- */
+(function(){
+  const root = document.documentElement;
+
+  function markKeyboardOpen() {
+    root.classList.add("keyboard-open");
+  }
+  function markKeyboardClosed() {
+    root.classList.remove("keyboard-open");
+  }
+
+  // Detect focus on inputs
+  document.addEventListener("focusin", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+      markKeyboardOpen();
+    }
+  });
+
+  // Detect focus out
+  document.addEventListener("focusout", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+      setTimeout(() => {
+        if (!document.activeElement || 
+            (document.activeElement.tagName !== "INPUT" && 
+             document.activeElement.tagName !== "TEXTAREA")) {
+          markKeyboardClosed();
+        }
+      }, 120);
+    }
+  });
+
+  // iOS viewport change fallback
+  window.visualViewport && window.visualViewport.addEventListener("resize", () => {
+    if (window.visualViewport.height < window.innerHeight * 0.85) {
+      markKeyboardOpen();
+    } else {
+      markKeyboardClosed();
+    }
+  });
+})();
 </script>
 <style>
   body {
@@ -33,15 +75,25 @@
     background: #000;
     color: white;
     overflow-x: hidden;
+    overscroll-behavior-y: none !important;
+    overscroll-behavior: none !important;
   }
+
+  html {
+    height: 100%;
+    overscroll-behavior: none !important;
+  }
+
   #map {
-    height: calc(100vh - env(safe-area-inset-bottom) - 110px);
+    height: calc(100svh - 110px - env(safe-area-inset-bottom) - env(safe-area-inset-top));
     width: 100%;
     border: none;
     margin: 0;
     padding: 0;
-    touch-action: manipulation;
+    touch-action: pan-x pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
   }
+
   .mobile-btn {
     width: 90%;
     padding: 14px;
@@ -53,6 +105,7 @@
     align-items: center;
     gap: 10px;
   }
+
   #bottomBar button.mobile-btn {
     flex: 1;
     margin: 0 6px;
@@ -63,72 +116,327 @@
     justify-content: center;
     align-items: center;
   }
+
   @media (max-width: 600px) {
     #bottomBar button.mobile-btn {
       height: 64px;
       font-size: 16px;
     }
   }
-  input, button { margin: 5px; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
-  img.thumbnail { width: 100px; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
 
-  /* --- PATCH C.2.3-A — Touch + Modal + Z-index Fixes --- */
+  input, button {
+    margin: 5px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  img.thumbnail {
+    width: 100px;
+    border-radius: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* POPUP FIXES */
   .leaflet-popup {
     pointer-events: auto !important;
     z-index: 999999;
   }
+
   .leaflet-popup-content {
     pointer-events: auto !important;
   }
+
+/* --- PATCH 5.4 — Popup Fade Refinement (C-Final) --- */
+.leaflet-popup {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 320ms ease-out,
+              transform 320ms ease-out;
+}
+.leaflet-popup.rz-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
   .leaflet-popup-content button {
     pointer-events: auto !important;
     touch-action: manipulation !important;
   }
+
+  /* --- PATCH 5.4-C — Minimalist iOS Popup Style --- */
+  .leaflet-popup-content-wrapper {
+    background: rgba(0,0,0,0.72) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    padding: 6px 10px !important;
+  }
+
+  .leaflet-popup-tip {
+    background: rgba(0,0,0,0.72) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+  }
+
+  .leaflet-popup-content {
+    color: white !important;
+    font-weight: 400 !important;
+    padding: 8px 4px !important;
+    line-height: 1.35 !important;
+  }
+
+  .popup-nav-btn {
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 12px !important;
+    padding: 10px 14px !important;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+
+  .popup-nav-btn:active {
+    background: rgba(255,255,255,0.18) !important;
+    transform: scale(0.96);
+  }
+
   .leaflet-container {
     touch-action: manipulation !important;
   }
+
+  /* PROFILE MODAL FIX */
   #profileModal {
     position: fixed;
     inset: 0;
     z-index: 1000000 !important;
     pointer-events: auto;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: env(safe-area-inset-bottom);
   }
+
   #profileModal, #profileModal * {
     pointer-events: auto !important;
   }
+
   body.no-scroll {
     overflow: hidden !important;
     height: 100vh !important;
+    overscroll-behavior: none !important;
   }
+
+  /* MEDIA WRAPPERS */
   .popup-media-wrapper {
     display: flex;
     justify-content: center;
     width: 100%;
   }
+
   .popup-media {
     max-width: 210px;
     border-radius: 12px;
   }
+  /* --- PATCH 5.4-A — Micro Animations --- */
+  .rz-fade {
+    opacity: 0;
+    animation: rzFadeIn 300ms ease forwards;
+  }
+  .rz-pop {
+    transform: scale(0.92);
+    animation: rzPop 180ms ease-out forwards;
+  }
+  button:active {
+    transform: scale(0.96);
+    transition: transform 120ms ease-out;
+  }
+/* --- PATCH 5.4-B3 — Progress Modal Fade + Scale + Smooth Bar --- */
+.rz-progress {
+  opacity: 0;
+  transform: scale(0.90);
+  transition: opacity 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.rz-progress.rz-open {
+  opacity: 1;
+  transform: scale(1);
+}
+#progressModalBar {
+  transition: width 260ms cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+}
 
-  html, body {
-    overscroll-behavior: none !important;
-    overscroll-behavior-y: none !important;
-    touch-action: none;
+  /* --- PATCH 5.4-D1 — Bottom Bar Responsiva --- */
+  #bottomBar {
+    transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1), height 260ms ease;
+    height: 110px;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: calc(env(safe-area-inset-top) + 4px);
+  }
+  #bottomBar.bottom-hidden {
+    transform: translateY(110%) !important;
   }
 
-  #map {
-    touch-action: pan-x pan-y !important;
+  /* Landscape: bottom bar menor */
+  @media (orientation: landscape) and (max-height: 480px) {
+    #bottomBar {
+      height: 70px !important;
+    }
+    #bottomBar button.mobile-btn {
+      height: 52px !important;
+      font-size: 14px !important;
+    }
   }
 
-  #profileModal {
-    overscroll-behavior: contain !important;
-    -webkit-overflow-scrolling: touch !important;
+  /* Dynamic Island / iPhone 14+ */
+  @supports (padding-top: env(safe-area-inset-top)) {
+    #bottomBar {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 6px);
+    }
+  }
+
+  /* Fine‑tuning para evitar sobreposição com teclado */
+  html.keyboard-open #bottomBar {
+    transform: translateY(110%);
   }
 </style>
+  @keyframes rzFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rzPop {
+    0% { transform: scale(0.92); }
+    100% { transform: scale(1); }
+  }
+  /* --- PATCH 5.4-B1 — Global Transition System --- */
+  .rz-transition {
+    transition: all 380ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .rz-slide {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+
+  .rz-slide.rz-active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .rz-fade-slow {
+    opacity: 0;
+    transition: opacity 480ms ease-out;
+  }
+
+  .rz-fade-slow.rz-active {
+    opacity: 1;
+  }
+</style>
+</style>
+/* --- PATCH 5.4 — Global Animations (fade-in + slide-up) --- */
+.fade-in {
+  opacity: 0;
+  animation: rz-fade-in 420ms ease-out forwards;
+}
+
+.slide-up {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rz-slide-up 420ms ease-out forwards;
+}
+
+@keyframes rz-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rz-slide-up {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+/* --- PATCH 5.4-B2.1 — Modal Transition Base --- */
+.rz-modal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+
+.rz-modal.rz-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.rz-modal-bg {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.rz-modal-hide {
+  opacity: 0 !important;
+  transform: translateY(22px) !important;
+}
 </head>
 <body style="overscroll-behavior:none;">
+  <!-- GLOBAL LOADER -->
+  <div id="globalLoader" style="display:none; position:fixed; inset:0; z-index:2000000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center; gap:12px;">
+    <div style="background:rgba(0,0,0,0.85); padding:18px 22px; border-radius:14px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div style="width:44px; height:44px; border-radius:22px; border:4px solid rgba(255,255,255,0.08); border-top-color:white; animation:rz-spin 900ms linear infinite;"></div>
+      <div id="globalLoaderText" style="font-size:15px; color:#fff; text-align:center; max-width:320px;">Carregando…</div>
+    </div>
+  </div>
+  <style>
+    @keyframes rz-spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+  </style>
 
-<div id="onboarding" style="position:fixed; inset:0; background:black; color:white; z-index:99999; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:30px; text-align:center; padding:40px;">
+  <!-- PROGRESS MODAL -->
+  <div id<div id="progressModal" class="rz-modal rz-progress" style="progressModal" style="
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.78);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    z-index:2000001;
+    align-items:center;
+    justify-content:center;
+  ">
+    <div style="
+      background:rgba(0,0,0,0.9);
+      padding:22px 26px;
+      border-radius:14px;
+      width:260px;
+      display:flex;
+      flex-direction:column;
+      text-align:center;
+      gap:14px;
+    ">
+      <div id="progressModalMsg" style="font-size:16px; font-weight:500;">Processando…</div>
+
+      <div style="
+        width:100%;
+        height:8px;
+        border-radius:5px;
+        background:rgba(255,255,255,0.12);
+        overflow:hidden;
+      ">
+        <div id="progressModalBar" style="
+          width:0%;
+          height:100%;
+          background:white;
+          border-radius:4px;
+          transition:width 160ms ease-out;
+        "></div>
+      </div>
+
+      <div id="progressModalPercent" style="font-size:13px; opacity:0.7;">
+        0%
+      </div>
+    </div>
+  </div>
+
+<div id="onboarding" class="rz-modal rz-fade" style="position:fixed; inset:0; background:black; color:white; z-index:99999; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:30px; text-align:center; padding:40px;">
   <div style="max-width:600px; width:90%; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center;">
     <h1 style="font-size:72px; margin-bottom:20px; width:90%; max-width:600px; text-align:center;">Bem-vindo ao App Rolezinho</h1>
     <p style="font-size:38.4px; max-width:600px; width:90%; text-align:center; line-height:1.4;">Crie mapas dos seus rolês a partir de suas fotos.</p>
@@ -137,7 +445,7 @@
   </div>
 </div>
 
-<div id="onboarding2" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:40px 20px; text-align:center; gap:40px;">
+<div id="onboarding2" class="rz-modal" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:40px 20px; text-align:center; gap:40px;">
   <div style="max-width:600px; width:90%; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center;">
     <h2 style="font-size:72px; width:90%; max-width:600px; text-align:center; margin:0 auto;">Como funciona</h2>
     <p style="font-size:38.4px; width:90%; max-width:600px; text-align:center; line-height:1.6; margin:0 auto;">
@@ -150,7 +458,7 @@
   </div>
 </div>
 
-<div id="onboarding3" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px 20px; text-align:center; gap:20px; padding-bottom:60px;">
+<div id="onboarding3" class="rz-modal" style="display:none; position:fixed; inset:0; background:black; color:white; z-index:99999; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px 20px; text-align:center; gap:20px; padding-bottom:60px;">
   <div style="max-width:600px; width:90%; margin:0 auto; text-align:center; display:flex; flex-direction:column; align-items:center;">
     <h2 style="font-size:48px; width:90%; max-width:600px; text-align:center;">Crie seu Perfil</h2>
     <p style="margin-top:10px; font-size:26.4px; width:90%; max-width:600px; text-align:center; line-height:1.4;">Digite seu nome e username:</p>
@@ -163,7 +471,7 @@
   </div>
 </div>
 
-<div id="profileModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); color:white; z-index:1000000; padding:40px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;">
+<div id="profileModal" class="rz-modal rz-fade" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); color:white; z-index:1000000; padding:40px 20px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;">
   <h2>Meu Perfil</h2>
   <p><b>Nome:</b> <span id="profileName"></span></p>
   <p><b>Username:</b> <span id="profileUser"></span></p>
@@ -180,7 +488,7 @@
 </div>
 
 <!-- Reorder modal -->
-<div id="reorderModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); color:white; z-index:1000001; padding:20px; overflow:auto;">
+<div id="reorderModal" class="rz-modal rz-fade" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); color:white; z-index:1000001; padding:20px; overflow:auto;">
   <div style="max-width:720px; margin:0 auto;">
     <h2 style="text-align:center; margin-top:8px;">Ordenar seu Rolê</h2>
     <p style="text-align:center; opacity:0.85;">Arraste as miniaturas para reordenar. A ordem padrão é cronológica.</p>
@@ -198,9 +506,9 @@
   multiple 
   accept="image/*,video/*"
   capture="environment"
-  style="opacity:0; position:absolute; inset:0; width:100%; height:100%; z-index:-1;"
+  style="opacity:0; position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:auto;"
 >
-<div id="bottomBar" style="position: fixed;
+<div id="bottomBar" class="rz-pop" style="position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
@@ -213,28 +521,29 @@
   border-top: 1px solid #333;
   height: 110px;
   padding-bottom: env(safe-area-inset-bottom);">
-  <button id="uploadBtn" class="mobile-btn" style="background:#111; border:2px solid #333; position:relative; overflow:hidden;">
+  <button id="uploadBtn" class="mobile-btn rz-pop" style="background:#111; border:2px solid #333; position:relative; overflow:hidden;">
     <input 
       type="file" 
       id="uploadOverlay"
+      multiple
       accept="image/*,video/*"
       capture="environment"
-      style="position:absolute; inset:0; opacity:0; z-index:5;"
+      style="position:absolute; inset:0; opacity:0; z-index:10; pointer-events:auto;"
     >
     <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 2l4 4h-3v6h-2V6H8l4-4zm-7 14v4h14v-4h2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4h2z"/></svg>
     Mídias
   </button>
 
-  <button id="saveRoute" class="mobile-btn" style="background:#111; border:2px solid #333; opacity:0.4; pointer-events:none; display:none;">
+  <button id="saveRoute" class="mobile-btn rz-pop" style="background:#111; border:2px solid #333; opacity:0.4; pointer-events:none; display:none;">
     Salvar
   </button>
 
-  <button id="openProfile" class="mobile-btn" style="background:#111; border:2px solid #333;">
+  <button id="openProfile" class="mobile-btn rz-pop" style="background:#111; border:2px solid #333;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>
     Perfil
   </button>
 
-  <button id="shareOpenedRole" class="mobile-btn" style="background:#0066ff; border:2px solid #0044cc; display:none;">
+  <button id="shareOpenedRole" class="mobile-btn rz-pop" style="background:#0066ff; border:2px solid #0044cc; display:none;">
     Compartilhar
   </button>
 </div>
@@ -247,12 +556,18 @@ function attachOnboardingListeners() {
   const ob3 = document.getElementById("onboarding3");
   // Next buttons
   document.getElementById("obNext1").addEventListener("click", () => {
-    ob1.style.display = "none";
+    ob1.classList.add("rz-modal-hide");
+    ob1.classList.remove("rz-open");
+    setTimeout(()=>{ ob1.style.display="none"; ob1.classList.remove("rz-modal-hide"); },380);
     ob2.style.display = "block";
+    ob2.classList.add("rz-open");
   });
   document.getElementById("obNext2").addEventListener("click", () => {
-    ob2.style.display = "none";
+    ob2.classList.add("rz-modal-hide");
+    ob2.classList.remove("rz-open");
+    setTimeout(()=>{ ob2.style.display="none"; ob2.classList.remove("rz-modal-hide"); },380);
     ob3.style.display = "block";
+    ob3.classList.add("rz-open");
   });
   // Finish onboarding with validation
   document.getElementById("finishOnboarding").addEventListener("click", () => {
@@ -269,16 +584,24 @@ function attachOnboardingListeners() {
     localStorage.setItem("profilePhone", phone);
     localStorage.setItem("profileEmail", email);
     document.getElementById("bottomBar").style.display = "flex";
-    ob3.style.display = "none";
+    ob3.classList.add("rz-modal-hide");
+    ob3.classList.remove("rz-open");
+    setTimeout(()=>{ ob3.style.display="none"; ob3.classList.remove("rz-modal-hide"); },380);
     document.getElementById("bottomBar").style.display = "flex";
     localStorage.setItem("onboardingDone", "1");
   });
   // Skip buttons
   document.querySelectorAll("#onboarding .skipOnboarding, #onboarding2 .skipOnboarding, #onboarding3 .skipOnboarding").forEach(btn => {
     btn.addEventListener("click", () => {
-      ob1.style.display = "none";
-      ob2.style.display = "none";
-      ob3.style.display = "none";
+      ob1.classList.add("rz-modal-hide");
+      ob1.classList.remove("rz-open");
+      setTimeout(()=>{ ob1.style.display="none"; ob1.classList.remove("rz-modal-hide"); },380);
+      ob2.classList.add("rz-modal-hide");
+      ob2.classList.remove("rz-open");
+      setTimeout(()=>{ ob2.style.display="none"; ob2.classList.remove("rz-modal-hide"); },380);
+      ob3.classList.add("rz-modal-hide");
+      ob3.classList.remove("rz-open");
+      setTimeout(()=>{ ob3.style.display="none"; ob3.classList.remove("rz-modal-hide"); },380);
       document.getElementById("bottomBar").style.display = "flex";
       localStorage.setItem("onboardingDone", "1");
     });
@@ -305,27 +628,71 @@ function enableMapInteraction() {
 }
 
 let _pickerOpenFlag = false;
+let _pickerLock = false;
 function preOpenPicker() {
   _pickerOpenFlag = true;
   document.body.classList.add('no-scroll');
   disableMapInteraction();
-  // Add a temporary fullscreen invisible overlay to absorb touch events (prevents ghost clicks)
+  _pickerLock = true;
+  document.body.style.pointerEvents = "none";
+
+  // create an overlay to absorb touch/click events
   if (!document.getElementById('pickerOverlay')) {
     const ov = document.createElement('div');
     ov.id = 'pickerOverlay';
     ov.style.position = 'fixed';
     ov.style.inset = '0';
-    ov.style.zIndex = '1000001';
-    ov.style.background = 'transparent';
+    ov.style.zIndex = '1000002';
+    ov.style.background = 'rgba(0,0,0,0)';
+    ov.style.pointerEvents = 'auto';
+    ov.addEventListener('touchstart', e => e.stopPropagation(), { passive: false });
+    ov.addEventListener('click', e => e.stopPropagation());
     document.body.appendChild(ov);
   }
+
+  // install temporary global touch handlers while picker is open (stored so we can remove later)
+  window._pickerTouchMoveHandler = function(e) {
+    if (_pickerOpenFlag || _pickerLock) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+  window._pickerTouchStartHandler = function(e) {
+    if (_pickerOpenFlag || _pickerLock) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  };
+
+  document.addEventListener('touchmove', window._pickerTouchMoveHandler, { passive: false });
+  document.addEventListener('touchstart', window._pickerTouchStartHandler, { passive: false });
 }
 function postClosePicker() {
   _pickerOpenFlag = false;
+  _pickerLock = false;
+
+  // ensure pointer-events are restored after a tiny delay to avoid flicker
+  setTimeout(() => { document.body.style.pointerEvents = "auto"; }, 120);
   document.body.classList.remove('no-scroll');
   enableMapInteraction();
+
+  // remove overlay
   const ov = document.getElementById('pickerOverlay');
-  if (ov) ov.remove();
+  if (ov) {
+    try { ov.removeEventListener('touchstart', (e) => {}); } catch(e){}
+    try { ov.removeEventListener('click', (e) => {}); } catch(e){}
+    ov.remove();
+  }
+
+  // remove temporary global touch handlers
+  try {
+    if (window._pickerTouchMoveHandler) document.removeEventListener('touchmove', window._pickerTouchMoveHandler, { passive: false });
+  } catch(e){}
+  try {
+    if (window._pickerTouchStartHandler) document.removeEventListener('touchstart', window._pickerTouchStartHandler, { passive: false });
+  } catch(e){}
+  window._pickerTouchMoveHandler = null;
+  window._pickerTouchStartHandler = null;
 }
 
 // Hook upload UI: open native picker and manage iOS quirks
@@ -333,45 +700,279 @@ const uploadBtnEl = document.getElementById('uploadBtn');
 const uploadOverlayEl = document.getElementById('uploadOverlay');
 const uploadEl = document.getElementById('upload');
 
-uploadBtnEl.addEventListener('click', (ev) => {
-  // On some iOS versions synthetic click may be blocked; pre-enable protections then trigger click
+uploadBtnEl.addEventListener('click', () => {
   preOpenPicker();
-  // small delay to ensure no-scroll applied before native picker opens
-  setTimeout(() => { uploadEl.click(); }, 50);
+  setTimeout(() => {
+    if (!_pickerOpenFlag) return;
+    uploadEl.click();
+  }, 60);
 });
 
-uploadOverlayEl.addEventListener('click', (ev) => { preOpenPicker(); });
 uploadOverlayEl.addEventListener('change', (e) => {
-  // propagate files to main upload input and trigger change handler
-  uploadEl.files = e.target.files;
-  uploadEl.dispatchEvent(new Event('change'));
-  // close picker protections
-  setTimeout(postClosePicker, 150);
+  try {
+    if (!e.target.files || e.target.files.length === 0) { uploadOverlayEl.value = ''; return; }
+    // Transfer files robustly (some browsers block direct assignment)
+    try {
+      uploadEl.files = e.target.files;
+    } catch (err) {
+      const dt = new DataTransfer();
+      Array.from(e.target.files).forEach(f => dt.items.add(f));
+      uploadEl.files = dt.files;
+    }
+    // Dispatch change slightly after to avoid race with picker close
+    setTimeout(() => {
+      const ev = new Event('change', { bubbles: true });
+      uploadEl.dispatchEvent(ev);
+    }, 60);
+  } finally {
+    // clear overlay so the same file(s) can be selected again later
+    try { uploadOverlayEl.value = ''; } catch(e){}
+  }
 });
 
 // Main input change handler will run the upload flow; ensure picker protections are cleared afterwards
-uploadEl.addEventListener('change', (e) => {
-  // Delay slightly to let any UI transitions finish
-  setTimeout(() => {
-    postClosePicker();
-  }, 200);
-});
+uploadEl.addEventListener('change', async (e) => {
+  // prevent re-entrancy
+  if (window._uploadProcessing) return;
+  window._uploadProcessing = true;
 
-// If user cancels the native picker, Safari may not fire change — listen to focus events to detect picker close
-window.addEventListener('focus', () => {
-  if (_pickerOpenFlag) {
-    // small delay to allow browser internal focus handling
-    setTimeout(() => {
-      if (_pickerOpenFlag) postClosePicker();
-    }, 300);
+  // close picker protections immediately for UI responsiveness; processing runs detached
+  _pickerOpenFlag = false;
+  setTimeout(() => { postClosePicker(); }, 120);
+
+  const files = Array.from(e.target.files || []);
+  if (!files.length) {
+    window._uploadProcessing = false;
+    return;
+  }
+
+  openProgressModal(files.length, "Analisando mídias…");
+  let progress = 0;
+  waypoints = [];
+  processedMedia = [];
+  orderedMedia = [];
+  ignoredMedia = [];
+  const bounds = [];
+
+  // helper: timeout wrapper for video metadata
+  const loadVideoMetadataWithTimeout = (file, t = 2500) => new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    let settled = false;
+    const cleanup = () => { try{ URL.revokeObjectURL(url); }catch(e){} video.src = ''; };
+    const onLoaded = () => { if (settled) return; settled = true; cleanup(); resolve(video); };
+    const onError = (err) => { if (settled) return; settled = true; cleanup(); reject(err || new Error('video metadata error')); };
+    video.preload = 'metadata';
+    video.onloadedmetadata = onLoaded;
+    video.onerror = onError;
+    video.src = url;
+    setTimeout(() => { if (settled) return; settled = true; cleanup(); resolve(video); }, t);
+  });
+
+  // helper: exifr.parse with timeout
+  const exifrParseWithTimeout = (file, t = 2200) => new Promise(async (resolve) => {
+    let done = false;
+    try {
+      const timer = setTimeout(() => { if (done) return; done = true; resolve(null); }, t);
+      const parsed = await window.exifr.parse(file).catch(() => null);
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(parsed);
+    } catch (err) { resolve(null); }
+  });
+
+  try {
+    // clear existing markers before processing
+    map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+
+    const saveBtn = document.getElementById("saveRoute");
+    saveBtn.style.display = "inline-block";
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = "1";
+    saveBtn.style.pointerEvents = "auto";
+
+    for (let file of files) {
+      try {
+        progress++;
+        updateProgressModal(progress, files.length, "Lendo EXIF…");
+
+        // Video metadata with safe timeout
+        if (file.type.startsWith("video")) {
+          await loadVideoMetadataWithTimeout(file, 2500).catch(() => {});
+        }
+
+        // EXIF: try lightweight gps first then parse with timeout
+        let exif = null;
+        try { exif = await window.exifr.gps(file); } catch(e){ exif = null; }
+        if (!exif || !exif.latitude) {
+          const full = await exifrParseWithTimeout(file, 2000);
+          if (full) {
+            if (full.GPSLatitude && full.GPSLongitude) exif = { latitude: full.GPSLatitude, longitude: full.GPSLongitude };
+            const iso = full && (full['com.apple.quicktime.location.ISO6709'] || full['Location.ISO6709'] || full['GPSCoordinates']);
+            if ((!exif || !exif.latitude) && iso && typeof iso === 'string') {
+              const m = iso.match(/([-+][0-9.]+)([-+][0-9.]+)/);
+              if (m) exif = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
+            }
+          }
+        }
+
+        if (!exif || !exif.latitude) exif = { latitude: null, longitude: null };
+
+        // timestamp fallback interpolation
+        if (exif.latitude === null || exif.longitude === null) {
+          let bestMatch = null; let bestDiff = Infinity;
+          waypoints.forEach(other => { if (!other.ts || !other.lat || !other.lon) return; const diff = Math.abs(new Date(other.ts).getTime() - new Date(file.lastModified).getTime()); if (diff < bestDiff) { bestDiff = diff; bestMatch = other; } });
+          if (bestMatch && bestDiff <= 60000) { exif.latitude = bestMatch.lat; exif.longitude = bestMatch.lon; }
+        }
+
+        // Strict GPS policy: reject if still missing
+        if (!exif || exif.latitude === null || exif.longitude === null) {
+          ignoredMedia.push({ name: file.name, type: file.type });
+          showToast("Ignorado (sem GPS): " + file.name, 2500);
+          continue;
+        }
+
+        // read data URL with fallback
+        const rawURL = await new Promise((resolve) => {
+          const reader = new FileReader();
+          let tried = false;
+          reader.onload = () => { if (!reader.result && !tried) { tried = true; const r2 = new FileReader(); r2.onload = () => resolve(r2.result); r2.readAsDataURL(file); return; } resolve(reader.result); };
+          reader.onerror = () => { resolve(null); };
+          try { reader.readAsDataURL(file); } catch(e) { resolve(null); }
+        });
+        if (!rawURL) { ignoredMedia.push({ name: file.name, type: file.type }); showToast('Arquivo corrompido: ' + file.name); continue; }
+
+        updateProgressModal(progress, files.length, "Compactando mídia…");
+        const url = await compressImage(rawURL);
+
+        // push waypoint + marker
+        const isInterpolated = false;
+        const ts = file.lastModified || Date.now();
+        const mediaItem = { lat: exif.latitude, lon: exif.longitude, name: file.name, preview: url, url: url, type: file.type.startsWith('video') ? 'video' : 'image', isInterpolated, ts };
+        processedMedia.push(mediaItem);
+        orderedMedia.push(mediaItem);
+
+        waypoints.push({ lat: exif.latitude, lon: exif.longitude, name: file.name, thumbnail: url, isVideo: file.type.startsWith('video'), isInterpolated, ts });
+
+        const marker = L.marker([exif.latitude, exif.longitude]).addTo(map);
+        markers.push(marker);
+        const mediaHTML = file.type.startsWith('video') ? `<div class="popup-media-wrapper"><video src="${url}" class="popup-media" autoplay loop muted playsinline></video></div>` : `<div class="popup-media-wrapper"><img src="${url}" class="popup-media" /></div>`;
+        const popupHTML = `<div style="text-align:center; max-width:220px;"><b>${file.name}</b><br>${mediaHTML}<br><div style="display:flex;justify-content:center;gap:10px;margin-top:8px;"><button class=\"popup-nav-btn\" onclick=\"event.stopPropagation(); focusMarker(${markers.length-2});\" style=\"padding:10px 14px; font-size:18px; border-radius:10px;\">⬅️</button><button class=\"popup-nav-btn\" onclick=\"event.stopPropagation(); focusMarker(${markers.length});\" style=\"padding:10px 14px; font-size:18px; border-radius:10px;\">➡️</button></div></div>`;
+        marker.bindPopup(popupHTML);
+        marker.on('popupopen', () => { setTimeout(() => smartPopupPosition(marker), 60); });
+
+        bounds.push([exif.latitude, exif.longitude]);
+
+      } catch (fileErr) {
+        console.error('error processing file', fileErr);
+        ignoredMedia.push({ name: file.name, type: file.type });
+        showToast('Erro processando: ' + file.name, 2800);
+        continue;
+      }
+    }
+
+    // finish
+    // Render thumbnails
+    const sortableThumbnails = document.getElementById('sortableThumbnails');
+    sortableThumbnails.innerHTML = '';
+    orderedMedia.forEach((item, index) => {
+      const thumb = document.createElement('img');
+      thumb.src = item.preview;
+      thumb.style.width = '70px'; thumb.style.height = '70px'; thumb.style.borderRadius = '10px'; thumb.style.objectFit = 'cover';
+      thumb.setAttribute('data-index', index);
+      thumb.setAttribute('draggable', 'true');
+      sortableThumbnails.appendChild(thumb);
+    });
+    enableSorting();
+
+    // Open reorder modal
+    openReorderModal(waypoints, bounds);
+
+    if (ignoredMedia && ignoredMedia.length) showToast(ignoredMedia.length + ' mídia(s) ignorada(s) por falta de GPS', 3500);
+
+  } catch (err) {
+    console.error('fatal upload handler error', err);
+    showToast('Erro no upload. Veja console.');
+  } finally {
+    closeProgressModal();
+    // clear file inputs so user can reselect same files
+    try { uploadEl.value = ''; uploadOverlayEl.value = ''; } catch(e){}
+    window._uploadProcessing = false;
+    // ensure picker protections removed
+    postClosePicker();
   }
 });
+
+// Consolidated picker-close detector: unify focus/visibility/pageshow into a single safe handler
+function schedulePickerCloseCheck() {
+  if (!_pickerOpenFlag) return;
+  clearTimeout(window._pickerCloseTimeout);
+  window._pickerCloseTimeout = setTimeout(() => {
+    if (_pickerOpenFlag) postClosePicker();
+  }, 180);
+}
+
+// If user cancels the native picker, Safari may not fire change — use a consolidated detector
+window.addEventListener('focus', () => schedulePickerCloseCheck());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') schedulePickerCloseCheck();
+});
+window.addEventListener('pageshow', () => schedulePickerCloseCheck());
 
 // iOS Safari picker opening fix (keep for compatibility fallback)
 uploadEl.addEventListener('click', () => {
   setTimeout(() => {}, 150);
 });
 </script>
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer" style="
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: calc(100% - 40px);
+  max-width: 380px;
+  padding: 0 20px;
+  pointer-events: none;
+"></div>
+<script>
+function showLoader(text){
+  const g = document.getElementById('globalLoader');
+  const t = document.getElementById('globalLoaderText');
+  if (t) t.textContent = text || 'Processando...';
+  if (g) g.style.display = 'flex';
+}
+function hideLoader(){
+  const g = document.getElementById('globalLoader');
+  if (g) g.style.display = 'none';
+}
+function showToast(msg, duration=3500){
+  const c = document.getElementById('toastContainer');
+  if (!c) return; 
+  const el = document.createElement('div');
+  el.style.pointerEvents = 'auto';
+  el.style.background = 'rgba(30,30,30,0.96)';
+  el.style.color = 'white';
+  el.style.padding = '10px 14px';
+  el.style.borderRadius = '10px';
+  el.style.boxShadow = '0 8px 30px rgba(0,0,0,0.6)';
+  el.style.fontSize = '14px';
+  el.style.textAlign = 'center';
+  el.style.opacity = '1';
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(()=>{ el.style.transition = 'opacity 280ms'; el.style.opacity = '0'; setTimeout(()=>el.remove(),300); }, duration);
+}
+// replace built-in alert with toast for nicer UX
+window.alert = function(msg){ showToast(String(msg)); };
+</script>
+
 <div id="map"></div>
 
 <!-- Thumbnails container for sortable thumbnails -->
@@ -449,8 +1050,38 @@ document.addEventListener("DOMContentLoaded", () => {
           <button class="popup-nav-btn" onclick="event.stopPropagation(); focusMarker(${i + 1})" style="padding:18px 26px; font-size:24px; border-radius:12px;">➡️</button>
         </div>`);
 
+        // --- Patch 3B: TopSafeFix (prevent popup clipping on top) ---
+        {
+          const popupEl = document.querySelector(".leaflet-popup");
+          if (popupEl) {
+            const rect = popupEl.getBoundingClientRect();
+            const safeTop = (window.safeAreaInsetTop || 20);
+            if (rect.top < safeTop + 40) {
+              const p = marker.getLatLng();
+              const shift = 0.0008;
+              const newPos = L.latLng(p.lat - shift, p.lng);
+              map.setView(newPos, map.getZoom(), { animate: false });
+            }
+          }
+        }
         marker.on("popupopen", () => {
-          map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+          setTimeout(() => { 
+            const el = document.querySelector(".leaflet-popup");
+            if (el) el.classList.add("rz-show");
+          }, 10);
+          {
+            const bb = 110 + (window.safeAreaInsetBottom || 0) + (window.safeAreaInsetTop || 0);
+            const p = marker.getLatLng();
+            const c = map.project(p, map.getZoom());
+            const nc = L.point(c.x, c.y - (bb + 40));
+            const nl = map.unproject(nc, map.getZoom());
+            map.setView(nl, map.getZoom(), { animate: true });
+          }
+          setTimeout(() => smartPopupPosition(marker), 50);
+        });
+        marker.on("popupclose", () => {
+          const el = document.querySelector(".leaflet-popup");
+          if (el) el.classList.remove("rz-show");
         });
 
         bounds.push([wp.lat, wp.lon]);
@@ -541,8 +1172,38 @@ function loadRole(id) {
         <button class="popup-nav-btn" onclick="event.stopPropagation(); focusMarker(${i + 1})" style="padding:18px 26px; font-size:24px; border-radius:12px;">➡️</button>
       </div>
     `);
+    // --- Patch 3B: TopSafeFix (prevent popup clipping on top) ---
+    {
+      const popupEl = document.querySelector(".leaflet-popup");
+      if (popupEl) {
+        const rect = popupEl.getBoundingClientRect();
+        const safeTop = (window.safeAreaInsetTop || 20);
+        if (rect.top < safeTop + 40) {
+          const p = marker.getLatLng();
+          const shift = 0.0008;
+          const newPos = L.latLng(p.lat - shift, p.lng);
+          map.setView(newPos, map.getZoom(), { animate: false });
+        }
+      }
+    }
     marker.on("popupopen", () => {
-      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+      setTimeout(() => { 
+        const el = document.querySelector(".leaflet-popup");
+        if (el) el.classList.add("rz-show");
+      }, 10);
+      {
+        const bb = 110 + (window.safeAreaInsetBottom || 0) + (window.safeAreaInsetTop || 0);
+        const p = marker.getLatLng();
+        const c = map.project(p, map.getZoom());
+        const nc = L.point(c.x, c.y - (bb + 40));
+        const nl = map.unproject(nc, map.getZoom());
+        map.setView(nl, map.getZoom(), { animate: true });
+      }
+      setTimeout(() => smartPopupPosition(marker), 50);
+    });
+    marker.on("popupclose", () => {
+      const el = document.querySelector(".leaflet-popup");
+      if (el) el.classList.remove("rz-show");
     });
     marker.on("click", () => {
       map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
@@ -573,6 +1234,39 @@ function loadRole(id) {
 
 const map = L.map('map').setView([0,0], 2);
 
+let _autoHideTimer = null;
+let _barScrollLock = false;
+
+function hideBottomBar() {
+  const bb = document.getElementById("bottomBar");
+  if (!bb) return;
+  window.requestAnimationFrame(() => {
+    bb.classList.add("bottom-hidden");
+  });
+}
+
+function showBottomBar() {
+  const bb = document.getElementById("bottomBar");
+  if (!bb) return;
+  window.requestAnimationFrame(() => {
+    bb.classList.remove("bottom-hidden");
+  });
+}
+
+map.on("movestart", () => {
+  if (_barScrollLock) return;
+  _barScrollLock = true;
+  hideBottomBar();
+  setTimeout(() => _barScrollLock = false, 250);
+});
+
+map.on("moveend", () => {
+  if (_autoHideTimer) clearTimeout(_autoHideTimer);
+  _autoHideTimer = setTimeout(() => {
+    showBottomBar();
+  }, 420);
+});
+
 L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   attribution: '© CARTO © OpenStreetMap',
   detectRetina: false
@@ -596,237 +1290,57 @@ function focusMarker(index) {
   }, 350);
 }
 
+// Progress Modal Functions
+function openProgressModal(total = 1, msg = "Processando…") {
+  const m = document.getElementById("progressModal");
+  const bar = document.getElementById("progressModalBar");
+  const txt = document.getElementById("progressModalMsg");
+  const pct = document.getElementById("progressModalPercent");
+
+  m.style.display = "flex";
+  m.classList.remove("rz-modal-hide");
+
+  // allow render cycle before animation
+  setTimeout(() => {
+    m.classList.add("rz-open");
+  }, 20);
+  bar.style.width = "0%";
+  pct.textContent = "0%";
+  txt.textContent = msg;
+
+  window._progressTotal = total;
+  window._progressCurrent = 0;
+}
+
+function updateProgressModal(current, total, msg) {
+  const bar = document.getElementById("progressModalBar");
+  const txt = document.getElementById("progressModalMsg");
+  const pct = document.getElementById("progressModalPercent");
+
+  const percentage = Math.min(100, Math.round((current / total) * 100));
+  bar.style.width = percentage + "%";
+  pct.textContent = percentage + "%";
+
+  if (msg) txt.textContent = msg;
+}
+
+function closeProgressModal() {
+  const m = document.getElementById("progressModal");
+  if (!m) return;
+
+  // smooth close animation
+  m.classList.remove("rz-open");
+  m.classList.add("rz-modal-hide");
+
+  // wait for animation to finish
+  setTimeout(() => {
+    m.style.display = "none";
+    m.classList.remove("rz-modal-hide");
+  }, 380);
+}
+
 // (handled above with 150ms setTimeout for iOS Safari picker opening fix)
-document.getElementById('upload').addEventListener('change', async (e) => {
-  waypoints = [];
-  processedMedia = [];
-  orderedMedia = [];
-  const files = e.target.files;
-  if (!files || files.length === 0) {
-    alert("Nenhuma mídia selecionada. Tente novamente.");
-    return;
-  }
-  const bounds = [];
-
-  // Limpar mapa
-  map.eachLayer(layer => {
-    if (layer instanceof L.Marker) map.removeLayer(layer);
-  });
-
-  const saveBtn = document.getElementById("saveRoute");
-  saveBtn.style.display = "inline-block";
-  saveBtn.disabled = false;
-  saveBtn.style.opacity = "1";
-  saveBtn.style.pointerEvents = "auto";
-
-  for (let file of files) {
-    // Ignorar vídeos maiores que 4 segundos
-    if (file.type.startsWith("video")) {
-      const videoURL = URL.createObjectURL(file);
-      const video = document.createElement("video");
-      video.src = videoURL;
-
-      // Aguarda carregar metadata
-      await new Promise(res => {
-        video.onloadedmetadata = () => res();
-      });
-
-      if (video.duration > 4) {
-        console.warn("Vídeo com mais de 4s — usando primeiros 4s:", file.name);
-      }
-    }
-
-    // Extrair GPS (funciona para fotos, Live Photos e vídeos .mov do iPhone)
-    let exif = null;
-
-    // 1 — Tentativa EXIF padrão
-    try {
-      exif = await window.exifr.gps(file);
-    } catch (e) {
-      exif = null;
-    }
-
-    // 2 — Tentativa EXIF completa
-    if (!exif || !exif.latitude) {
-      try {
-        const full = await window.exifr.parse(file);
-
-        if (full) {
-          // Padrões comuns
-          if (full.GPSLatitude && full.GPSLongitude) {
-            exif = { latitude: full.GPSLatitude, longitude: full.GPSLongitude };
-          }
-
-          // QuickTime ISO6709
-          if (!exif || !exif.latitude) {
-            const iso = full["com.apple.quicktime.location.ISO6709"] ||
-                        full["Location.ISO6709"] ||
-                        full["GPSCoordinates"];
-
-            if (iso && typeof iso === "string") {
-              // Ex: "+37.33182-122.03118+096.000/"
-              const m = iso.match(/([-+][0-9.]+)([-+][0-9.]+)/);
-              if (m) {
-                exif = { latitude: parseFloat(m[1]), longitude: parseFloat(m[2]) };
-              }
-            }
-          }
-        }
-      } catch(e) {
-        console.warn("EXIF (full) fallback failed.");
-      }
-    }
-
-    // 3 — Último fallback: sem GPS
-    if (!exif || !exif.latitude) {
-      exif = { latitude: null, longitude: null };
-    }
-    // --- D.1 FINAL — Fallback por timestamp: copiar GPS da foto mais próxima ---
-    if (exif.latitude === null || exif.longitude === null) {
-      let bestMatch = null;
-      let bestDiff = Infinity;
-
-      // tentar achar outro arquivo com GPS válido e timestamp próximo
-      waypoints.forEach(other => {
-        if (!other.ts) return;
-        if (!other.lat || !other.lon) return;
-
-        const diff = Math.abs(new Date(other.ts).getTime() - new Date(file.lastModified).getTime());
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestMatch = other;
-        }
-      });
-
-      // se achou alguém do mesmo minuto, copiar suas coordenadas
-      if (bestMatch && bestDiff <= 60000) {
-        exif.latitude = bestMatch.lat;
-        exif.longitude = bestMatch.lon;
-      }
-    }
-
-    // --- Custom GPS filter block inserted here ---
-    // After fallback D.1 GPS extraction
-    if (!exif || !exif.latitude || !exif.longitude) {
-      ignoredMedia.push(file.name);
-      console.warn("Arquivo sem GPS ignorado:", file.name);
-      continue;
-    }
-
-    // --- D.2-B — Strict GPS filter (after D.1 fallback) ---
-    if (!exif || exif.latitude === null || exif.longitude === null) {
-      console.warn("Mídia ignorada por falta de GPS:", file.name);
-      ignoredMedia.push({ name: file.name, type: file.type, ts: file.lastModified });
-      alert("Atenção: a mídia '" + file.name + "' foi ignorada por falta de localização.");
-      continue; // skip this file entirely
-    }
-
-    if (exif?.latitude && exif?.longitude) {
-      // Determine if GPS is interpolated
-      const isInterpolated = (exif.latitude === null || exif.longitude === null) ? true : false;
-      // Compress thumbnail before storing
-      let rawURL = await new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (!reader.result || reader.result.length < 50) {
-            console.warn("FileReader empty — retrying fallback read");
-            alert("Atenção: uma das mídias está corrompida e foi ignorada.");
-            const reader2 = new FileReader();
-            reader2.onload = () => resolve(reader2.result);
-            reader2.readAsDataURL(file);
-            return;
-          }
-          resolve(reader.result);
-        };
-        reader.readAsDataURL(file);
-      });
-      const url = await compressImage(rawURL); // compress thumbnail
-
-      waypoints.push({
-        lat: exif.latitude,
-        lon: exif.longitude,
-        name: file.name,
-        thumbnail: url,
-        isVideo: file.type.startsWith("video"),
-        isInterpolated: isInterpolated
-      });
-      // Store compressed thumbnail for double safety
-      waypoints[waypoints.length - 1].thumbnailCompressed = url;
-
-      const ts = exif?.DateTimeOriginal || file.lastModified || Date.now();
-      waypoints[waypoints.length - 1].ts = new Date(ts);
-
-      const index = waypoints.length - 1;
-      const marker = L.marker([exif.latitude, exif.longitude]).addTo(map);
-      markers[index] = marker;
-
-      let mediaHTML = file.type.startsWith("video")
-        ? `<div class="popup-media-wrapper"><video src="${url}" class="popup-media" autoplay loop muted playsinline></video></div>`
-        : `<div class="popup-media-wrapper"><img src="${url}" class="popup-media" /></div>`;
-
-      const isInterpolatedVal = isInterpolated;
-      const mediaItem = {
-        lat: exif.latitude,
-        lon: exif.longitude,
-        name: file.name,
-        preview: url,
-        url: url,
-        type: file.type.startsWith("video") ? "video" : "image",
-        isInterpolated: isInterpolated,
-        ts: new Date(ts)
-      };
-      processedMedia.push(mediaItem);
-      orderedMedia.push(mediaItem);
-
-      const popupHTML = `
-  <div style="text-align:center; max-width:220px;">
-    <b>${file.name}</b><br>
-    ${mediaHTML}<br>
-    <div style="display:flex; justify-content:center; gap:10px; margin-top:8px;">
-      <button class="popup-nav-btn" onclick="event.stopPropagation(); focusMarker(${index - 1});"
-        aria-label="Anterior" style="padding:10px 14px; font-size:18px; border-radius:10px;">
-        ⬅️
-      </button>
-      <button class="popup-nav-btn" onclick="event.stopPropagation(); focusMarker(${index + 1});"
-        aria-label="Próximo" style="padding:10px 14px; font-size:18px; border-radius:10px;">
-        ➡️
-      </button>
-    </div>
-    ${isInterpolatedVal ? '<div style="font-size:11px; opacity:0.6; margin-top:8px;">GPS estimado</div>' : ''}
-  </div>
-`;
-
-      marker.bindPopup(popupHTML);
-      marker.on("popupopen", () => {
-        map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
-      });
-      marker.on("click", () => {
-        map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
-      });
-
-      bounds.push([exif.latitude, exif.longitude]);
-    }
-  }
-
-  // Render sortable thumbnails after upload
-  const sortableThumbnails = document.getElementById("sortableThumbnails");
-  sortableThumbnails.innerHTML = "";
-  orderedMedia.forEach((item, index) => {
-    const thumb = document.createElement("img");
-    thumb.src = item.preview;
-    thumb.style.width = "70px";
-    thumb.style.height = "70px";
-    thumb.style.borderRadius = "10px";
-    thumb.style.objectFit = "cover";
-    thumb.setAttribute("data-index", index);
-    thumb.setAttribute("draggable", "true");
-    sortableThumbnails.appendChild(thumb);
-  });
-  enableSorting();
-
-  // Open reorder modal to allow user to adjust order before rendering route
-  openReorderModal(waypoints, bounds);
-});
+/* Duplicate upload handler removed — unified upload handler (with robust picker protections) is defined earlier as uploadEl.addEventListener('change', ...) */
 function renderWaypointsAndRoute(waypointsToRender, boundsArray) {
   // clear previous markers
   markers = [];
@@ -864,8 +1378,38 @@ function renderWaypointsAndRoute(waypointsToRender, boundsArray) {
     `;
 
     marker.bindPopup(popupHTML);
+    // --- Patch 3B: TopSafeFix (prevent popup clipping on top) ---
+    {
+      const popupEl = document.querySelector(".leaflet-popup");
+      if (popupEl) {
+        const rect = popupEl.getBoundingClientRect();
+        const safeTop = (window.safeAreaInsetTop || 20);
+        if (rect.top < safeTop + 40) {
+          const p = marker.getLatLng();
+          const shift = 0.0008;
+          const newPos = L.latLng(p.lat - shift, p.lng);
+          map.setView(newPos, map.getZoom(), { animate: false });
+        }
+      }
+    }
     marker.on("popupopen", () => {
-      map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
+      setTimeout(() => { 
+        const el = document.querySelector(".leaflet-popup");
+        if (el) el.classList.add("rz-show");
+      }, 10);
+      {
+        const bb = 110 + (window.safeAreaInsetBottom || 0) + (window.safeAreaInsetTop || 0);
+        const p = marker.getLatLng();
+        const c = map.project(p, map.getZoom());
+        const nc = L.point(c.x, c.y - (bb + 40));
+        const nl = map.unproject(nc, map.getZoom());
+        map.setView(nl, map.getZoom(), { animate: true });
+      }
+      setTimeout(() => smartPopupPosition(marker), 50);
+    });
+    marker.on("popupclose", () => {
+      const el = document.querySelector(".leaflet-popup");
+      if (el) el.classList.remove("rz-show");
     });
     marker.on("click", () => {
       map.setView(marker.getLatLng(), map.getZoom(), { animate: true });
@@ -899,118 +1443,293 @@ function renderWaypointsAndRoute(waypointsToRender, boundsArray) {
 // SortableJS-like drag-and-drop for thumbnails
 function enableSorting() {
   const sortableThumbnails = document.getElementById("sortableThumbnails");
-  let dragged;
+  if (!sortableThumbnails) return;
+  let dragged = null;
+
+  // detach previous listeners safely
+  sortableThumbnails.querySelectorAll('img').forEach(img => {
+    img.ondragstart = null;
+    img.ondragend = null;
+  });
 
   sortableThumbnails.addEventListener("dragstart", (e) => {
-    dragged = e.target;
-    e.target.style.opacity = .5;
+    const t = e.target;
+    if (t && t.tagName === "IMG") {
+      dragged = t;
+      t.style.opacity = ".5";
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', t.getAttribute('data-index'));
+    }
   });
 
   sortableThumbnails.addEventListener("dragend", (e) => {
-    e.target.style.opacity = "";
+    if (dragged) dragged.style.opacity = "";
+    dragged = null;
   });
 
   sortableThumbnails.addEventListener("dragover", (e) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const afterElement = getDragAfterElement(sortableThumbnails, e.clientX);
+    if (!dragged) return;
+    if (afterElement == null) sortableThumbnails.appendChild(dragged);
+    else sortableThumbnails.insertBefore(dragged, afterElement);
   });
 
   sortableThumbnails.addEventListener("drop", (e) => {
     e.preventDefault();
-    if (e.target.tagName === "IMG" && dragged !== e.target) {
-      const children = [...sortableThumbnails.children];
-      const draggedIndex = children.indexOf(dragged);
-      const targetIndex = children.indexOf(e.target);
-      if (draggedIndex > targetIndex) {
-        sortableThumbnails.insertBefore(dragged, e.target);
-      } else {
-        sortableThumbnails.insertBefore(dragged, e.target.nextSibling);
-      }
+    updateOrderFromDOM();
+  });
+
+  let touchDragging = null;
+  sortableThumbnails.addEventListener('touchstart', (e) => {
+    const t = e.target;
+    if (t && t.tagName === "IMG") {
+      touchDragging = t;
+      t.classList.add('dragging-temp');
+      t.style.opacity = '.5';
+    }
+  }, { passive: true });
+
+  sortableThumbnails.addEventListener('touchend', () => {
+    if (touchDragging) {
+      touchDragging.classList.remove('dragging-temp');
+      touchDragging.style.opacity = '';
+      touchDragging = null;
       updateOrderFromDOM();
     }
   });
+
+  function getDragAfterElement(container, x) {
+    const draggableElements = [...container.querySelectorAll('img:not(.dragging-temp)')];
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = x - box.left - box.width / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
 }
+
 
 function updateOrderFromDOM() {
-  const sortableThumbnails = document.getElementById("sortableThumbnails");
-  const images = [...sortableThumbnails.children];
-  orderedMedia = images.map(img => {
-    const idx = parseInt(img.getAttribute("data-index"));
-    return processedMedia[idx];
-  });
+  if (window._reorderLock) return;
+  window._reorderLock = true;
+
+  try {
+    const sortableThumbnails = document.getElementById("sortableThumbnails");
+    if (!sortableThumbnails) return;
+
+    const images = [...sortableThumbnails.children].filter(n => n.tagName === "IMG");
+
+    const newOrdered = [];
+    images.forEach((img, idx) => {
+      const dataIdx = parseInt(img.getAttribute('data-index'));
+      let src = processedMedia[dataIdx];
+      if (!src) {
+        const candidate = processedMedia.find(p => p.preview === img.src || p.url === img.src);
+        src = candidate || { name: img.alt || ("mídia-" + idx), preview: img.src, url: img.src, lat: null, lon: null, type: "image" };
+      }
+      newOrdered.push({ ...src });
+      img.setAttribute('data-index', idx);
+    });
+
+    orderedMedia = normalizeMediaObjects(newOrdered);
+
+    waypoints = orderedMedia.map(item => ({
+      lat: item.lat,
+      lon: item.lon,
+      name: item.name,
+      thumbnail: item.preview || item.url,
+      isVideo: item.isVideo,
+      ts: item.ts,
+      isInterpolated: item.isInterpolated
+    }));
+
+    const matched = [];
+    orderedMedia.forEach((om, i) => {
+      const matchIndex = processedMedia.findIndex(pm =>
+        (pm.preview && pm.preview === om.preview) ||
+        (pm.url && pm.url === om.url) ||
+        (pm.name === om.name && pm.ts === om.ts)
+      );
+      matched[i] = matchIndex !== -1 ? { ...processedMedia[matchIndex] } : { ...om };
+    });
+    processedMedia = matched.map(it => ({ ...it }));
+
+    scheduleRebuildAllMediaState(40, { preserveSelectedOrder: true });
+
+  } catch (e) {
+    console.error("updateOrderFromDOM error:", e);
+  } finally {
+    setTimeout(() => { window._reorderLock = false; }, 120);
+  }
+}
+
+/* --- PATCH 5.3 — rebuildAllMediaState + scheduler --- */
+let _rebuildScheduled = false;
+
+function rebuildAllMediaState() {
+  try {
+    // Reconstruct orderedMedia from DOM
+    const sortableThumbnails = document.getElementById("sortableThumbnails");
+    if (!sortableThumbnails) return;
+
+    const imgs = [...sortableThumbnails.children];
+    const newOrder = imgs.map(img => {
+      const originalIndex = parseInt(img.getAttribute("data-index"));
+      return processedMedia[originalIndex];
+    });
+
+    // If the new order contains undefined items, abort silently
+    if (newOrder.some(n => !n)) {
+      console.warn("Skipping rebuildAllMediaState due to undefined media.");
+      return;
+    }
+
+    orderedMedia = [...newOrder];
+
+    // Re-sync waypoints in the same order
+    waypoints = orderedMedia.map(m => ({
+      lat: m.lat,
+      lon: m.lon,
+      name: m.name,
+      thumbnail: m.preview,
+      isVideo: m.type === "video",
+      ts: m.ts
+    }));
+
+    console.log("rebuildAllMediaState: fully synced");
+  } catch (err) {
+    console.error("rebuildAllMediaState ERROR:", err);
+  }
+}
+
+function scheduleRebuildAllMediaState() {
+  if (_rebuildScheduled) return;
+  _rebuildScheduled = true;
+  setTimeout(() => {
+    _rebuildScheduled = false;
+    rebuildAllMediaState();
+  }, 50);
 }
 
 
-function openReorderModal(initialWaypoints, initialBounds) {
+function openReorderModal(initialWaypoints = [], initialBounds = []) {
   const modal = document.getElementById('reorderModal');
   const list = document.getElementById('reorderList');
+  if (!modal || !list) return;
+
+  rebuildAllMediaState({ preserveSelectedOrder: true });
+
+  const source = orderedMedia.map(it => ({ ...it }));
   list.innerHTML = '';
 
-  // create items
-  initialWaypoints.forEach((wp, idx) => {
-    const item = document.createElement('div');
-    item.className = 'reorder-item';
-    item.draggable = true;
-    item.dataset.wpIndex = idx;
-    item.style.display = 'flex';
-    item.style.alignItems = 'center';
-    item.style.background = '#0b0b0b';
-    item.style.border = '1px solid #222';
-    item.style.padding = '8px';
-    item.style.borderRadius = '10px';
-    item.style.gap = '12px';
+  source.forEach((item, idx) => {
+    const el = document.createElement('div');
+    el.className = 'reorder-item';
+    el.draggable = true;
+    el.dataset.idx = idx;
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.background = '#0b0b0b';
+    el.style.border = '1px solid #222';
+    el.style.padding = '8px';
+    el.style.borderRadius = '10px';
+    el.style.gap = '12px';
 
-    const thumb = document.createElement(wp.isVideo ? 'video' : 'img');
+    const thumb = document.createElement(item.isVideo ? 'video' : 'img');
     thumb.className = 'thumbnail';
     thumb.style.width = '96px';
     thumb.style.height = '96px';
     thumb.style.objectFit = 'cover';
-    if (wp.isVideo) { thumb.src = wp.thumbnail; thumb.autoplay = true; thumb.loop = true; thumb.muted = true; thumb.playsInline = true; }
-    else { thumb.src = wp.thumbnail; }
+    thumb.src = item.preview || item.url || '';
+    if (item.isVideo) {
+      thumb.autoplay = true;
+      thumb.loop = true;
+      thumb.muted = true;
+      thumb.playsInline = true;
+    }
 
     const meta = document.createElement('div');
     meta.style.flex = '1';
-    meta.innerHTML = `<div style="font-size:14px">${wp.name}</div><div style="font-size:12px; opacity:0.7">${wp.ts ? new Date(wp.ts).toLocaleString() : ''}</div>`;
+    meta.innerHTML = `
+      <div style="font-size:14px">${item.name}</div>
+      <div style="font-size:12px; opacity:0.7">${item.ts ? new Date(item.ts).toLocaleString() : ''}</div>
+    `;
 
-    item.appendChild(thumb);
-    item.appendChild(meta);
+    el.appendChild(thumb);
+    el.appendChild(meta);
+    list.appendChild(el);
 
-    // drag events
-    item.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/plain', ev.target.dataset.wpIndex); ev.dataTransfer.effectAllowed = 'move'; });
-    item.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; });
-    item.addEventListener('drop', (ev) => {
-      ev.preventDefault();
-      const fromIndex = parseInt(ev.dataTransfer.getData('text/plain'));
-      const toIndex = parseInt(ev.target.closest('.reorder-item') ? ev.target.closest('.reorder-item').dataset.wpIndex : ev.target.dataset.wpIndex);
-      if (isNaN(toIndex)) return;
-      // reorder DOM
-      const fromNode = list.querySelector(`[data-wp-index='${fromIndex}']`);
-      const toNode = list.querySelector(`[data-wp-index='${toIndex}']`);
-      if (fromNode && toNode) {
-        if (fromIndex < toIndex) toNode.after(fromNode);
-        else toNode.before(fromNode);
-        // reassign dataset indices to match DOM order
-        Array.from(list.children).forEach((ch, i) => ch.dataset.wpIndex = i);
-      }
+    el.addEventListener('dragstart', (ev) => {
+      ev.dataTransfer.setData('text/plain', el.dataset.idx);
+      ev.dataTransfer.effectAllowed = 'move';
+      el.classList.add('dragging-temp');
     });
 
-    list.appendChild(item);
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging-temp');
+    });
+
+    el.addEventListener('dragover', (ev) => ev.preventDefault());
+    el.addEventListener('drop', (ev) => {
+      ev.preventDefault();
+      const from = parseInt(ev.dataTransfer.getData('text/plain'));
+      const toEl = ev.target.closest('.reorder-item');
+      if (!toEl) return;
+      const to = parseInt(toEl.dataset.idx);
+      if (from === to) return;
+
+      const children = [...list.children];
+      const fromNode = children[from];
+      const toNode = children[to];
+
+      if (from < to) toNode.after(fromNode);
+      else toNode.before(fromNode);
+
+      [...list.children].forEach((c, i) => c.dataset.idx = i);
+    });
   });
 
-  // show modal
   modal.style.display = 'block';
+  modal.classList.add("rz-open");
 
-  // attach buttons
   document.getElementById('reorderConfirm').onclick = () => {
-    // build new order
-    const newOrder = Array.from(list.children).map(ch => initialWaypoints[parseInt(ch.dataset.wpIndex)]);
-    modal.style.display = 'none';
-    // update global waypoints and render
-    waypoints = newOrder;
-    renderWaypointsAndRoute(waypoints, initialBounds);
+    const newOrder = [...list.children].map(c => {
+      const idx = parseInt(c.dataset.idx);
+      return source[idx];
+    });
+
+    orderedMedia = newOrder.map(it => ({ ...it }));
+    processedMedia = orderedMedia.map(it => ({ ...it }));
+    waypoints = orderedMedia.map(item => ({
+      lat: item.lat,
+      lon: item.lon,
+      name: item.name,
+      thumbnail: item.preview || item.url,
+      isVideo: item.isVideo,
+      ts: item.ts,
+      isInterpolated: item.isInterpolated
+    }));
+
+    modal.classList.add("rz-modal-hide");
+    modal.classList.remove("rz-open");
+    setTimeout(() => {
+      modal.style.display = "none";
+      modal.classList.remove("rz-modal-hide");
+    }, 380);
+    rebuildMarkersFromOrderedMedia();
   };
+
   document.getElementById('reorderCancel').onclick = () => {
-    modal.style.display = 'none';
-    // proceed with original order
+    modal.classList.add("rz-modal-hide");
+    modal.classList.remove("rz-open");
+    setTimeout(() => {
+      modal.style.display = "none";
+      modal.classList.remove("rz-modal-hide");
+    }, 380);
     renderWaypointsAndRoute(initialWaypoints, initialBounds);
   };
 }
@@ -1129,6 +1848,7 @@ document.getElementById("openProfile").addEventListener("click", () => {
   if (photo) { pp.src = photo; pp.style.display = "block"; } else { pp.style.display = "none"; }
   renderProfileRoles();
   m.style.display = "block";
+  m.classList.add("rz-open");
   m.style.zIndex = "999999";
   // prevent page scroll and map interaction while profile is open
   document.body.classList.add("no-scroll");
@@ -1146,11 +1866,26 @@ document.getElementById("shareOpenedRole").addEventListener("click", () => {
 });
 
 document.getElementById("closeProfile").addEventListener("click", () => {
-  document.getElementById("profileModal").style.display = "none";
+  const modal = document.getElementById("profileModal");
+  if (!modal) return;
+
+  // add exit animation
+  modal.classList.add("rz-modal-hide");
+  modal.classList.remove("rz-open");
+
+  // restore scroll & map interaction
   document.body.classList.remove("no-scroll");
-  try { enableMapInteraction(); } catch(e) { }
-  // remove any leftover picker overlay that might block touches
-  const pov = document.getElementById('pickerOverlay'); if (pov) pov.remove();
+  try { enableMapInteraction(); } catch(e){}
+
+  // remove any picker overlay
+  const pov = document.getElementById('pickerOverlay');
+  if (pov) pov.remove();
+
+  // wait for animation to finish, then fully hide modal
+  setTimeout(() => {
+    modal.style.display = "none";
+    modal.classList.remove("rz-modal-hide");
+  }, 400);
 });
 
 // Safety: prevent touch/click events from reaching the map when any modal is open
@@ -1222,7 +1957,7 @@ document.addEventListener("click", (e) => {
 });
 </script>
 
-<div id="storyEditor" style="display:none; position:fixed; inset:0; background:black; z-index:9999; padding:20px;">
+<div id="storyEditor" class="rz-modal" style="display:none; position:fixed; inset:0; background:black; z-index:9999; padding:20px;">
   <button id="closeStoryEditor" style="position:absolute; top:20px; right:20px; z-index:10000; padding:8px 14px;">Fechar</button>
   <div id="storyCanvasWrapper" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center;">
     <canvas id="storyCanvas" width="1080" height="1920" style="background:black; border:2px solid #444;"></canvas>
