@@ -508,14 +508,13 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 
   // Autoload shared role
   function autoloadSharedRole() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has("role")) {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash.length > 0) {
       try {
-        const decoded = JSON.parse(LZString.decompressFromEncodedURIComponent(urlParams.get("role")));
-        
+        const decodedJSON = LZString.decompressFromBase64(hash.replace(/-/g, "+").replace(/_/g, "/"));
+        const decoded = JSON.parse(decodedJSON);
         // Mostrar interface de visualização compartilhada
         showSharedRoleView(decoded);
-        
       } catch (e) {
         console.error("Erro carregando rolê compartilhado:", e);
         alert("Erro ao carregar o rolê compartilhado. Link inválido.");
@@ -702,9 +701,8 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   function loadRoleData(data, title = null) {
     waypoints = data;
     renderWaypoints();
-    
     // Se é um rolê compartilhado, não mostrar botão de compartilhar
-    const isShared = new URLSearchParams(window.location.search).has("role");
+    const isShared = window.location.hash.length > 1;
     if (!isShared) {
       document.getElementById("shareRoute").style.display = "inline-flex";
     }
@@ -840,8 +838,19 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       createdAt: role.data
     };
 
-    const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(payload));
-    const shareURL = getBaseURL() + "/?role=" + encoded;
+    // Compress payload into a SHORT hash
+    const json = JSON.stringify(payload);
+    const compressed = LZString.compressToBase64(json)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    // Base URL always GitHub Pages–safe
+    let base = window.location.origin + window.location.pathname;
+    base = base.replace(/index\.html$/i, "");
+    base = base.replace(/\/+$/, "");
+
+    const shareURL = `${base}/#${compressed}`;
 
     if (navigator.share) {
       navigator.share({
