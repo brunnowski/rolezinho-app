@@ -22,9 +22,9 @@
 <link rel="manifest" href="manifest.json">
 <script>
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW register failed:', err));
+    navigator.serviceWorker.register('/sw.js').catch(err => {});
   } else {
-    console.warn('Service worker not registered (insecure or unsupported protocol).');
+    /* Service worker not registered (insecure or unsupported protocol). */
   }
 /* --- PATCH 5.4-D3 — Keyboard Detection (evitar overlap com teclado) --- */
 (function(){
@@ -275,7 +275,7 @@
     padding-top: calc(env(safe-area-inset-top) + 4px);
   }
   #bottomBar.bottom-hidden {
-    transform: translateY(110%) !important;
+    transform: translateY(0) !important;
   }
 
   /* Landscape: bottom bar menor */
@@ -301,82 +301,6 @@
     transform: translateY(110%);
   }
 </style>
-  @keyframes rzFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes rzPop {
-    0% { transform: scale(0.92); }
-    100% { transform: scale(1); }
-  }
-  /* --- PATCH 5.4-B1 — Global Transition System --- */
-  .rz-transition {
-    transition: all 380ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  }
-
-  .rz-slide {
-    opacity: 0;
-    transform: translateY(18px);
-    transition: opacity 420ms ease, transform 420ms ease;
-  }
-
-  .rz-slide.rz-active {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .rz-fade-slow {
-    opacity: 0;
-    transition: opacity 480ms ease-out;
-  }
-
-  .rz-fade-slow.rz-active {
-    opacity: 1;
-  }
-</style>
-</style>
-/* --- PATCH 5.4 — Global Animations (fade-in + slide-up) --- */
-.fade-in {
-  opacity: 0;
-  animation: rz-fade-in 420ms ease-out forwards;
-}
-
-.slide-up {
-  opacity: 0;
-  transform: translateY(14px);
-  animation: rz-slide-up 420ms ease-out forwards;
-}
-
-@keyframes rz-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes rz-slide-up {
-  0% { opacity: 0; transform: translateY(14px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-/* --- PATCH 5.4-B2.1 — Modal Transition Base --- */
-.rz-modal {
-  opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 380ms ease, transform 380ms ease;
-}
-
-.rz-modal.rz-open {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.rz-modal-bg {
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.rz-modal-hide {
-  opacity: 0 !important;
-  transform: translateY(22px) !important;
-}
 </head>
 <body style="overscroll-behavior:none;">
   <!-- GLOBAL LOADER -->
@@ -508,7 +432,7 @@
   capture="environment"
   style="opacity:0; position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:auto;"
 >
-<div id="bottomBar" class="rz-pop" style="position: fixed;
+  <div id="bottomBar" class="rz-pop" style="position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
@@ -517,7 +441,7 @@
   display: none;
   justify-content: space-between;
   align-items: center;
-  z-index: 99990;
+  z-index: 100;
   border-top: 1px solid #333;
   height: 110px;
   padding-bottom: env(safe-area-inset-bottom);">
@@ -1106,7 +1030,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      console.log("Rolê compartilhado carregado com sucesso.");
+      /* Rolê compartilhado carregado com sucesso. */
     } catch (e) {
       console.error("Erro carregando rolê compartilhado:", e);
     }
@@ -1237,13 +1161,7 @@ const map = L.map('map').setView([0,0], 2);
 let _autoHideTimer = null;
 let _barScrollLock = false;
 
-function hideBottomBar() {
-  const bb = document.getElementById("bottomBar");
-  if (!bb) return;
-  window.requestAnimationFrame(() => {
-    bb.classList.add("bottom-hidden");
-  });
-}
+function hideBottomBar() {}
 
 function showBottomBar() {
   const bb = document.getElementById("bottomBar");
@@ -1253,19 +1171,9 @@ function showBottomBar() {
   });
 }
 
-map.on("movestart", () => {
-  if (_barScrollLock) return;
-  _barScrollLock = true;
-  hideBottomBar();
-  setTimeout(() => _barScrollLock = false, 250);
-});
+map.on("movestart", () => {});
 
-map.on("moveend", () => {
-  if (_autoHideTimer) clearTimeout(_autoHideTimer);
-  _autoHideTimer = setTimeout(() => {
-    showBottomBar();
-  }, 420);
-});
+map.on("moveend", () => {});
 
 L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   attribution: '© CARTO © OpenStreetMap',
@@ -1720,7 +1628,7 @@ function openReorderModal(initialWaypoints = [], initialBounds = []) {
       modal.style.display = "none";
       modal.classList.remove("rz-modal-hide");
     }, 380);
-    rebuildMarkersFromOrderedMedia();
+    renderWaypointsAndRoute(waypoints, []);
   };
 
   document.getElementById('reorderCancel').onclick = () => {
@@ -1737,7 +1645,6 @@ function openReorderModal(initialWaypoints = [], initialBounds = []) {
 // Salvar rota no localStorage
 document.getElementById('saveRoute').addEventListener('click', () => {
   try {
-    console.log("DEBUG: saveRoute clicked. Waypoints:", waypoints);
     if (!waypoints || !waypoints.length) {
       alert("Nenhum rolê para salvar.");
       return;
@@ -1765,10 +1672,8 @@ document.getElementById('saveRoute').addEventListener('click', () => {
       }))
     };
 
-    console.log("DEBUG: Saving role:", role);
     saved.push(role);
     localStorage.setItem("rolesSalvos", JSON.stringify(saved));
-    console.log("DEBUG: rolesSalvos now:", JSON.parse(localStorage.getItem("rolesSalvos")));
 
     alert("Rolê salvo com sucesso!");
 
@@ -1781,7 +1686,7 @@ document.getElementById('saveRoute').addEventListener('click', () => {
     }
 
     // refresh profile list if modal open
-    try { renderProfileRoles(); } catch(e) { console.warn('renderProfileRoles missing', e); }
+    try { renderProfileRoles(); } catch(e) { }
   } catch (err) {
     console.error('Erro ao salvar rolê:', err);
     alert('Erro ao salvar rolê. Veja o console para mais detalhes.');
@@ -1835,9 +1740,7 @@ function renderProfileRoles() {
   `).join("");
 }
 
-console.log("Profile button found:", document.getElementById("openProfile"));
 document.getElementById("openProfile").addEventListener("click", () => {
-  console.log("Opening profile modal");
   const m = document.getElementById("profileModal");
   document.getElementById("profileName").textContent = localStorage.getItem("profileName") || "—";
   document.getElementById("profileUser").textContent = localStorage.getItem("profileUser") || "—";
