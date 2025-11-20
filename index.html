@@ -2,1392 +2,613 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Rolezinho</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
 <style>
-  /* Reset e base mobile-first */
-  * {
-    -webkit-tap-highlight-color: transparent;
-    box-sizing: border-box;
-  }
-  
   html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial;
     overflow: hidden;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-    -webkit-text-size-adjust: 100%;
-    touch-action: pan-x pan-y;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: black;
   }
-
-  body {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-
-  /* Mapa responsivo com safe areas */
   #map {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 100vh;
-    height: 100dvh;
-    width: 100vw;
+    position: fixed; inset: 0;
     z-index: 1;
-    touch-action: none;
   }
 
-  /* Popups do mapa otimizados */
-  .leaflet-popup-content-wrapper {
-    border-radius: 12px;
-    padding: 8px;
+  /* Bottom navigation */
+  #bottomTabs {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 70px;
+    background: rgba(0,0,0,0.9);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex; justify-content: space-around; align-items: center;
+    z-index: 10000;
+  }
+  #bottomTabs button {
+    flex: 1; height: 100%;
+    background: none; border: none; color: white;
+    font-size: 26px; cursor: pointer;
   }
 
-  .thumbnail {
-    max-width: 200px;
-    max-height: 200px;
-    width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 8px 0;
-    object-fit: cover;
-  }
-
-  /* Bottom bar mobile-first */
-  #bottomBar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    padding: 12px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    z-index: 1000;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
-  }
-
-  #bottomBar.hidden {
-    transform: translateY(100%);
-  }
-
-  /* Botões otimizados para mobile */
-  button {
-    padding: 12px 20px;
-    font-size: 16px;
-    border-radius: 12px;
-    border: none;
-    background: #0066ff;
-    color: white;
-    font-weight: 600;
-    cursor: pointer;
-    touch-action: manipulation;
-    -webkit-user-select: none;
-    user-select: none;
-    transition: all 0.2s;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  button:active {
-    transform: scale(0.95);
-    opacity: 0.8;
-  }
-
-  button:disabled {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-
-  .btn-secondary {
-    background: #333;
-    border: 1px solid #555;
-  }
-
-  .btn-icon {
-    min-width: 44px;
-    padding: 10px;
-  }
-
-  /* Modais fullscreen mobile */
-  .modal-fullscreen {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    color: white;
-    z-index: 9999;
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 24px;
-    padding-top: calc(24px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  .modal-fullscreen.active {
-    display: flex;
-  }
-
-  .modal-content {
-    max-width: 500px;
-    width: 100%;
-    text-align: center;
-  }
-
-  h1 {
-    font-size: clamp(32px, 8vw, 48px);
-    margin: 0 0 16px;
-    font-weight: 700;
-  }
-
-  h2 {
-    font-size: clamp(28px, 6vw, 38px);
-    margin: 0 0 12px;
-    font-weight: 600;
-  }
-
-  p {
-    font-size: clamp(16px, 4vw, 20px);
-    line-height: 1.5;
-    opacity: 0.9;
-    margin: 12px 0;
-  }
-
-  /* Inputs otimizados para mobile */
-  input[type="text"],
-  input[type="email"],
-  input[type="tel"] {
-    width: 100%;
-    padding: 14px;
-    font-size: 16px;
-    border-radius: 12px;
-    border: 2px solid #333;
-    background: #111;
-    color: white;
-    margin: 8px 0;
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  input:focus {
-    outline: none;
-    border-color: #0066ff;
-  }
-
-  /* Profile modal adaptado */
-  #profileModal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #000;
-    color: white;
-    z-index: 9999;
-    padding: 20px;
-    padding-top: calc(20px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  #profileModal.active {
-    display: block;
-  }
-
-  .profile-photo {
-    width: 100px;
-    height: 100px;
+  /* Central camera button */
+  #tabUpload {
+    position: absolute;
+    bottom: 35px; left: 50%; transform: translateX(-50%);
+    width: 75px; height: 75px;
     border-radius: 50%;
-    object-fit: cover;
-    margin: 16px auto;
-    display: block;
+    border: none; color: white;
+    background: #0066ff;
+    font-size: 32px;
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10001;
+    animation: pulse 2s infinite ease-in-out;
   }
+  @keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.08); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  /* Panels */
+  .panel {
+    position: fixed; inset: 0;
+    background: black; color: white;
+    z-index: 9999;
+    display: none; flex-direction: column;
+    padding: 20px; overflow-y: auto;
+  }
+  .panel.active { display: flex; }
 
   .role-card {
-    padding: 16px;
     background: #111;
+    padding: 16px; border-radius: 12px;
+    margin-bottom: 14px;
     border: 1px solid #333;
-    border-radius: 12px;
-    margin: 12px 0;
   }
 
-  .role-card h3 {
-    margin: 0 0 8px;
-    font-size: 18px;
-  }
-
-  .role-card .date {
-    font-size: 14px;
-    opacity: 0.7;
-    margin-bottom: 12px;
-  }
-
-  .button-group {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .button-group button {
-    flex: 1;
-    min-width: 100px;
-    font-size: 14px;
-    padding: 10px 16px;
-  }
-
-  /* Story editor mobile */
-  #storyEditor {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 9999;
-    padding: 20px;
-    padding-top: calc(20px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    flex-direction: column;
-  }
-
-  #storyEditor.active {
-    display: flex;
-  }
-
-  #storyCanvasWrapper {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-  }
-
-  #storyCanvas {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    border: 2px solid #333;
-  }
-
-  /* Loading spinner */
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top-color: #0066ff;
+  #mapPanel { padding:0; }
+  #mapPanel #map { position:absolute; inset:0; }
+  #floatingCameraBtn {
+    position: absolute;
+    bottom: 90px;
+    right: 20px;
+    width: 65px;
+    height: 65px;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 20px auto;
+    background: #0066ff;
+    color: white;
+    font-size: 28px;
+    border:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation: pulse 2s infinite ease-in-out;
+    z-index: 10002;
   }
-
+  .thumbnail {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 8px;
+  }
+  .spinner {
+    border: 6px solid rgba(255, 255, 255, 0.2);
+    border-top: 6px solid #0066ff;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+  }
   @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Gestos e animações */
-  @media (prefers-reduced-motion: reduce) {
-    * {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-
-  /* Landscape adjustments */
-  @media (orientation: landscape) and (max-height: 500px) {
-    h1 { font-size: 28px; }
-    h2 { font-size: 24px; }
-    p { font-size: 16px; }
-    button { padding: 10px 16px; min-height: 40px; }
-  }
-
-  /* Hide file input */
-  input[type="file"] {
-    display: none;
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 </style>
 </head>
 <body>
 
-<div id="loginScreen" class="modal-fullscreen active" style="display:flex;">
-  <div class="modal-content">
-    <img src="logo.png" alt="Rolezinho" style="width:120px; margin-bottom:20px;">
-    <input id="loginEmail" type="email" placeholder="Email" autocomplete="email">
-    <input id="loginPassword" type="password" placeholder="Senha" autocomplete="current-password">
-    <button id="loginBtn">Login</button>
-    <button id="createAccountBtn" class="btn-secondary" style="margin-top:10px;">Criar conta</button>
-  </div>
+<div id="mapPanel" class="panel active">
+  <div id="map" style="flex:1;"></div>
+  <button id="floatingCameraBtn">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+      <path d="M23 19V7a2 2 0 0 0-2-2h-3l-2-3H8L6 5H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  </button>
 </div>
 
-<div id="createProfileScreen" class="modal-fullscreen">
-  <div class="modal-content">
-    <h2>Criar Conta</h2>
-
-    <label style="display:block; margin-bottom:10px;">
-      <span style="font-size:14px; opacity:0.8;">Foto de perfil (opcional)</span>
-    </label>
-    <img id="cpPhotoPreview" class="profile-photo" style="display:none; margin-bottom:10px;">
-    <label for="cpPhotoInput" class="btn-secondary" style="padding:10px 16px; display:inline-block; margin-bottom:20px;">
-      📷 Enviar foto
-    </label>
-    <input id="cpPhotoInput" type="file" accept="image/*">
-
-    <input id="cpEmail" type="email" placeholder="Email" autocomplete="email">
-
-    <div style="position:relative; width:100%;">
-      <input id="cpPassword" type="password" placeholder="Senha" autocomplete="new-password">
-      <button id="toggleCpPassword" type="button" style="
-        position:absolute; right:12px; top:50%; transform:translateY(-50%);
-        background:none; border:none; color:white; font-size:16px;">👁</button>
-    </div>
-
-    <input id="cpName" type="text" placeholder="Nome completo">
-    <input id="cpUsername" type="text" placeholder="Nome de usuário (@)">
-    
-    <button id="cpCreateBtn">Criar Conta</button>
-    <button id="cpBack" class="btn-secondary" style="margin-top:10px;">Voltar</button>
-  </div>
+<!-- FEED -->
+<div id="feedPanel" class="panel">
+  <h2 style="margin-bottom:20px;">Meus Rolês</h2>
+  <div id="feedList"></div>
 </div>
-<div id="profileModal" class="modal-fullscreen">
-  <button id="closeProfile" style="position:absolute; top:20px; right:20px;">✕</button>
-  <h2>Meu Perfil</h2>
-  <img id="profilePhotoPreview" class="profile-photo" style="display:none;">
 
-  <p><strong>Nome:</strong> <span id="profileName"></span></p>
-  <p><strong>Username:</strong> <span id="profileUser"></span></p>
-  <p><strong>Email:</strong> <span id="profileEmail"></span></p>
+<!-- PROFILE -->
+<div id="profilePanel" class="panel">
+  <h2 style="margin-bottom:10px;">Meu Perfil</h2>
+  <p><strong>Nome:</strong> <span id="profileName">Visitante</span></p>
+  <p><strong>Username:</strong> <span id="profileUser">guest</span></p>
+  <p><strong>Email:</strong> <span id="profileEmail">—</span></p>
 
-  <h3 style="margin-top:30px;">Meus Rolês</h3>
+  <h3 style="margin-top:25px;">Meus Rolês</h3>
   <div id="profileRoles"></div>
 </div>
 
-<div id="map"></div>
-
-<div id="routeActionsBar" style="
-  position:fixed; bottom:70px; left:0; right:0;
-  display:none; justify-content:center; align-items:center;
-  gap:10px; padding:12px; z-index:1000;
-  background:rgba(0,0,0,0.8); border-top:1px solid rgba(255,255,255,0.1);">
-  <button id="saveRoute" style="flex:1;">Salvar Rolê</button>
-  <button id="shareRoute" class="btn-secondary" style="flex:1; display:none;">Compartilhar</button>
+<div id="bottomTabs">
+  <button id="tabFeed"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7"/><path d="M9 22V12h6v10"/></svg></button>
+  <button id="tabMap"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 6l7-3 8 3 7-3v14l-7 3-8-3-7 3z"/></svg></button>
+  <button id="tabProfile"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21c1.5-4 11.5-4 13 0"/></svg></button>
 </div>
 
-<div id="bottomTabs" style="
-  position:fixed; bottom:0; left:0; right:0;
-  height:70px; background:rgba(0,0,0,0.95);
-  display:flex; justify-content:space-around; align-items:center;
-  border-top:1px solid rgba(255,255,255,0.1); z-index:1000;">
-  
-  <button id="tabHome" class="btn-secondary" style="flex:1; height:100%;">🏠</button>
-  <button id="tabUpload" style="
-    position:absolute; bottom:35px; left:50%; transform:translateX(-50%);
-    width:70px; height:70px; border-radius:50%; background:#0066ff;
-    border:none; font-size:28px; color:white;">＋</button>
-  <button id="tabProfile" class="btn-secondary" style="flex:1; height:100%;">👤</button>
-</div>
-<input id="uploadInput" type="file" accept="image/*,video/*" multiple style="display:none;">
-
-<div id="storyEditor">
-  <button id="closeStoryEditor" style="position: absolute; top: 20px; right: 20px; z-index: 10;">✕</button>
-  <div id="storyCanvasWrapper">
-    <canvas id="storyCanvas" width="1080" height="1920"></canvas>
-  </div>
-  <button id="exportStory">Exportar Story</button>
-</div>
+<input id="uploadInput" type="file" accept="image/*" multiple style="display:none;">
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script>
-// Aguardar carregar todos os scripts
-// --- Supabase Client (Patch 1) ---
-const SUPABASE_URL = 'https://qjanxtpcszdinwxdrmpc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqYW54dHBjc3pkaW53eGRybXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTI2NzUsImV4cCI6MjA3OTE4ODY3NX0.AZUMTReBfk1IR32RCGGZiuR-NpsxzBRkeWItTFCR444';
+/* --- Minimal Supabase Setup --- */
+const supabaseClient = supabase.createClient(
+  'https://qjanxtpcszdinwxdrmpc.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqYW54dHBjc3pkaW53eGRybXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTI2NzUsImV4cCI6MjA3OTE4ODY3NX0.AZUMTReBfk1IR32RCGGZiuR-NpsxzBRkeWItTFCR444'
+);
 
-// Criar o cliente Supabase e expor globalmente como `supabaseClient`
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-window.supabaseClient = supabaseClient;
+let currentProfile = null;
+let waypoints = [];
+let markers = [];
+let currentRoute = null;
 
-async function createProfileIfNotExists(user) {
-  if (!user || !user.id) return;
+/* --- Auto Profile Creation --- */
+async function ensureProfile() {
+  if (currentProfile) return currentProfile;
 
-  const uid = user.id;
-  const email = user.email || "";
-
-  // Verifica se já existe perfil
-  const { data: existing, error: selectErr } = await supabaseClient
+  const { data } = await supabaseClient
     .from("profiles")
-    .select("id")
-    .eq("auth_uid", uid)
-    .limit(1);
-
-  if (selectErr) {
-    console.error("Erro ao verificar profile:", selectErr);
-    return;
-  }
-
-  if (existing && existing.length > 0) {
-    return; // já existe
-  }
-
-  // Cria o perfil mínimo
-  const { error: insertErr } = await supabaseClient.from("profiles").insert({
-    auth_uid: uid,
-    email: email,
-    name: "",
-    username: "",
-    photo_url: null,
-    phone: null
-  });
-
-  if (insertErr) {
-    console.error("Erro ao criar perfil automático:", insertErr);
-  } else {
-    console.log("Perfil criado automaticamente após SIGNED_IN");
-  }
-}
-
-/**
- * uploadThumbnailToSupabase(base64, roleId, filename)
- * - base64: dataURL (ex: 'data:image/jpeg;base64,...')
- * - roleId: uuid da role
- * - filename: nome original do arquivo (usado para gerar o path)
- *
- * Retorna: publicUrl (string) ou lança erro.
- */
-async function uploadThumbnailToSupabase(base64, roleId, filename) {
-  try {
-    const blob = await (await fetch(base64)).blob();
-    const ext = (blob.type && blob.type.split('/')[1]) || 'jpg';
-    const safeName = encodeURIComponent(filename.replace(/\s+/g, '_'));
-    const path = `${roleId}/${safeName}.${ext}`;
-
-    const { error: uploadError } = await supabaseClient.storage
-      .from('thumbnails')
-      .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseClient.storage.from('thumbnails').getPublicUrl(path);
-    return data?.publicUrl || null;
-  } catch (err) {
-    console.error('Erro uploadThumbnailToSupabase:', err);
-    throw err;
-  }
-}
-
-/**
- * createRoleOnSupabase({ titulo, creator_name, creator_photo, profile_id })
- * - Insere uma linha na tabela roles e retorna o objeto inserido.
- */
-async function createRoleOnSupabase({ titulo, creator_name, creator_photo, profile_id }) {
-  const payload = { titulo, creator_name, creator_photo };
-  if (profile_id) payload.profile_id = profile_id;
-
-  const { data, error } = await supabaseClient
-    .from('roles')
-    .insert(payload)
+    .insert({
+      name: "Visitante",
+      username: "guest_" + Date.now(),
+      email: null
+    })
     .select()
     .single();
 
-  if (error) throw error;
+  currentProfile = data;
   return data;
 }
 
-/**
- * insertWaypointsBulk(roleId, waypointsArray)
- * - waypointsArray: [{ lat, lon, name, thumbnail_url, is_video, ts }]
- * - Insere todos os waypoints para role_id e retorna os registros inseridos.
- */
-async function insertWaypointsBulk(roleId, waypointsArray) {
-  const payload = waypointsArray.map(w => ({
-    role_id: roleId,
-    lat: w.lat,
-    lon: w.lon,
-    name: w.name,
-    thumbnail_url: w.thumbnail_url || null,
-    is_video: w.is_video || false,
-    ts: w.ts || null
-  }));
-
-  const { data, error } = await supabaseClient
-    .from('waypoints')
-    .insert(payload);
-
-  if (error) throw error;
-  return data;
-}
-// --- fim Supabase Client ---
-
-// Login handler and tab logic
-document.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.getElementById("loginBtn");
-  if (loginBtn) loginBtn.addEventListener("click", async () => {
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
-
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { showToast("Login inválido"); return; }
-
-    document.getElementById("loginScreen").classList.remove("active");
-  });
-
-  const createAccountBtn = document.getElementById("createAccountBtn");
-  if (createAccountBtn) createAccountBtn.addEventListener("click", async () => {
-    document.getElementById("loginScreen").classList.remove("active");
-    document.getElementById("createProfileScreen").classList.add("active");
-  });
-
-  // Handler para voltar ao login
-  const cpBack = document.getElementById("cpBack");
-  if (cpBack) cpBack.addEventListener("click", () => {
-    document.getElementById("createProfileScreen").classList.remove("active");
-    document.getElementById("loginScreen").classList.add("active");
-  });
-
-  // Handler de criar conta (novo)
-  const cpCreateBtn = document.getElementById("cpCreateBtn");
-  if (cpCreateBtn) cpCreateBtn.addEventListener("click", async () => {
-    const email = document.getElementById("cpEmail").value.trim();
-    const password = document.getElementById("cpPassword").value.trim();
-    const name = document.getElementById("cpName").value.trim();
-    const username = document.getElementById("cpUsername").value.trim();
-
-    if (!email || !password || !name || !username) {
-      showToast("Preencha todos os campos");
-      return;
-    }
-
-    // 1) Validar username único
-    const { data: existingUser } = await supabaseClient
-      .from("profiles")
-      .select("id")
-      .eq("username", username)
-      .limit(1);
-
-    if (existingUser && existingUser.length > 0) {
-      showToast("Esse nome de usuário já está em uso");
-      return;
-    }
-
-    // 2) Criar usuário no Auth
-    const { data: authData, error: authError } =
-      await supabaseClient.auth.signUp({ email, password });
-
-    if (authError) {
-      showToast("Erro ao criar conta");
-      return;
-    }
-
-    const uid = authData?.user?.id;
-    if (!uid) {
-      showToast("Erro interno");
-      return;
-    }
-
-    // 3) Upload opcional da foto
-    let photoURL = null;
-    const photoFile = document.getElementById("cpPhotoInput").files[0];
-    if (photoFile) {
-      const base64 = await fileToBase64(photoFile);
-      const blob = await (await fetch(base64)).blob();
-      const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
-      const path = `profile_photos/${uid}.${ext}`;
-
-      const { error: uploadErr } = await supabaseClient.storage
-        .from("thumbnails")
-        .upload(path, blob, { upsert: true, contentType: blob.type });
-
-      if (!uploadErr) {
-        const { data: pub } = supabaseClient.storage
-          .from("thumbnails")
-          .getPublicUrl(path);
-        photoURL = pub.publicUrl;
-      }
-    }
-
-    // Nova lógica: não faz login automático, apenas orienta o usuário
-    showToast("Conta criada! Verifique seu email para confirmar.");
-    document.getElementById("createProfileScreen").classList.remove("active");
-    document.getElementById("loginScreen").classList.add("active");
-    return;
-  });
-
-  // Mostrar/ocultar senha
-  const toggleCpPassword = document.getElementById("toggleCpPassword");
-  if (toggleCpPassword) toggleCpPassword.addEventListener("click", () => {
-    const input = document.getElementById("cpPassword");
-    input.type = input.type === "password" ? "text" : "password";
-  });
-
-  // Preview da foto de perfil
-  const cpPhotoInput = document.getElementById("cpPhotoInput");
-  if (cpPhotoInput) cpPhotoInput.addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const base64 = await fileToBase64(file);
-    const preview = document.getElementById("cpPhotoPreview");
-    preview.src = base64;
-    preview.style.display = "block";
-  });
-});
-
-document.getElementById("tabUpload").addEventListener("click", () => {
-  document.getElementById("uploadInput").click();
-});
-
-document.getElementById("tabHome").addEventListener("click", () => {
-  document.getElementById("profileModal").classList.remove("active");
-  // Certifica-se de que se um rolê compartilhado/aberto estiver ativo, ele seja fechado
-  const sharedHeaderEl = document.getElementById("sharedHeader");
-  if (sharedHeaderEl) {
-    sharedHeaderEl.remove();
-    const mapEl = document.getElementById('map');
-    mapEl.style.paddingTop = '0';
-    const bottomTabs = document.getElementById('bottomTabs');
-    if (bottomTabs) bottomTabs.style.display = 'flex';
-    clearMap();
-    window.map.setView([-27.5954, -48.5480], 13);
-  }
-});
-
-document.getElementById("tabProfile").addEventListener("click", () => {
-  loadProfileData();
-  document.getElementById("profileModal").classList.add("active");
-});
-// --- UX Loading helpers (Patch UX-1) ---
-function showLoadingOverlay(message = 'Carregando...') {
-  // avoid duplicate
-  if (document.getElementById('rx-loading-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'rx-loading-overlay';
-  overlay.style.cssText = `
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,0.6); z-index:100000; color:white; padding:20px; backdrop-filter:blur(6px);
-  `;
-  overlay.innerHTML = `
-    <div style="text-align:center; max-width:320px; width:100%;">
-      <div class="spinner" style="margin:0 auto 12px;"></div>
-      <div style="font-size:16px; opacity:0.95;">${message}</div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function hideLoadingOverlay() {
-  const el = document.getElementById('rx-loading-overlay');
-  if (!el) return;
-  el.remove();
-}
-// --- fim UX Loading helpers ---
-
-/* --- UX Toast Helper (Patch UX-2) --- */
-function showToast(message) {
-  const existing = document.getElementById("rx-toast");
-  if (existing) existing.remove();
-
-  const toast = document.createElement("div");
-  toast.id = "rx-toast";
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 90px; /* Adjusted position to avoid conflict with routeActionsBar */
-    left: 50%;
-    transform: translateX(-50%) translateY(10px);
-    background: rgba(0,0,0,0.85);
-    color: white;
-    padding: 12px 20px;
-    border-radius: 12px;
-    font-size: 15px;
-    z-index: 999999;
-    opacity: 0;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-  `;
-  document.body.appendChild(toast);
-
-  requestAnimationFrame(() => {
-    toast.style.opacity = "1";
-    toast.style.transform = "translateX(-50%) translateY(0)";
-  });
-
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateX(-50%) translateY(10px)";
-    setTimeout(() => toast.remove(), 250);
-  }, 2200);
-}
-/* --- fim UX Toast Helper --- */
-window.addEventListener('load', function() {
-  initApp();
-});
-
-function initApp() {
-  /* --- C.1: Sync automático de sessão Supabase --- */
-  supabaseClient.auth.getSession().then(async ({ data }) => {
-    const session = data?.session;
-    if (!session || !session.user) return;
-
-    try {
-      const { data: profile } = await supabaseClient
-        .from("profiles")
-        .select("*")
-        .eq("auth_uid", session.user.id)
-        .single();
-
-      if (profile) {
-        window.currentProfile = profile;
-
-        localStorage.setItem("profileId", profile.id || "");
-        localStorage.setItem("profileName", profile.name || "");
-        localStorage.setItem("profileEmail", profile.email || "");
-        localStorage.setItem("profilePhoto", profile.photo_url || "");
-        localStorage.setItem("profileUser", profile.username || "");
-        localStorage.setItem("profilePhone", profile.phone || "");
-      }
-    } catch (err) {
-      console.error("Erro ao sincronizar sessão:", err);
-    }
-  });
-  /* --- fim sync automático --- */
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_IN" && session?.user) {
-      document.getElementById("loginScreen").classList.remove("active");
-    }
-    if (event === "SIGNED_OUT") {
-      document.getElementById("loginScreen").classList.add("active");
-    }
-    if (event === "SIGNED_IN" && session?.user) {
-      createProfileIfNotExists(session.user);
-    }
-  });
-  // Configuração mobile-first
-  document.addEventListener('gesturestart', e => e.preventDefault());
-  document.addEventListener('gesturechange', e => e.preventDefault());
-  document.addEventListener('gestureend', e => e.preventDefault());
-
-  // Mapa
-  const map = L.map('map', {
+/* --- MAP --- */
+const map = L.map('map', {
   zoomControl: true,
-  attributionControl: false,
-  tap: true,
-  touchZoom: true,
-  scrollWheelZoom: false
+  attributionControl: false
 }).setView([-27.5954, -48.5480], 13);
 
-L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-  detectRetina: true,
-  maxZoom: 19
-}).addTo(map);
+L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png').addTo(map);
 
-  // Variáveis globais
-  let waypoints = [];
-  let markers = [];
-  let currentRoute = null;
-  window.map = map; // Tornar acessível globalmente para funções onclick
+/* PANELS */
+const feedPanel = document.getElementById("feedPanel");
+const profilePanel = document.getElementById("profilePanel");
+const mapPanel = document.getElementById("mapPanel");
 
-  // Autoload shared role
-  autoloadSharedRole();
-  async function autoloadSharedRole() {
-    const roleId = new URLSearchParams(location.search).get("role");
-    if (!roleId) return;
+/* NAVIGATION */
+document.getElementById("tabMap").onclick = () => {
+  mapPanel.classList.add("active");
+  feedPanel.classList.remove("active");
+  profilePanel.classList.remove("active");
+  document.getElementById("floatingCameraBtn").style.display = "flex";
+};
+document.getElementById("tabFeed").onclick = () => {
+  feedPanel.classList.add("active");
+  mapPanel.classList.remove("active");
+  profilePanel.classList.remove("active");
+  document.getElementById("floatingCameraBtn").style.display = "none";
+  renderFeed();
+};
+document.getElementById("tabProfile").onclick = () => {
+  profilePanel.classList.add("active");
+  feedPanel.classList.remove("active");
+  mapPanel.classList.remove("active");
+  document.getElementById("floatingCameraBtn").style.display = "none";
+  renderProfile();
+};
 
-    try {
-      showLoadingOverlay('Carregando rolê...');
+document.getElementById("floatingCameraBtn").onclick = () => {
+  const input = document.getElementById("uploadInput");
+  if (input) input.click();
+};
 
-      const { data: role, error } = await supabaseClient
-        .from("roles")
-        .select("id, titulo, creator_name, creator_photo")
-        .eq("id", roleId)
-        .single();
+/* UPLOADER */
+// UPLOAD HANDLER (EXIF extraction + preview, no auto-save)
+document.getElementById("uploadInput").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
 
-      if (error || !role) {
-        console.error("Erro carregando role:", error);
-        hideLoadingOverlay();
-        return;
+  // Loading UI while processing
+  const loadingDiv = document.createElement('div');
+  loadingDiv.innerHTML = '<div class="spinner"></div><p style="text-align:center; margin-top:10px;">Processando mídias...</p>';
+  loadingDiv.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:99998; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;';
+  document.body.appendChild(loadingDiv);
+
+  waypoints = [];
+  clearMap();
+
+  for (let file of files) {
+    // Skip long videos (keep short clips only)
+    if (file.type.startsWith('video')) {
+      try {
+        const duration = await getVideoDuration(file);
+        if (duration > 4) continue;
+      } catch (e) {
+        console.warn('Não foi possível ler duração do vídeo, ignorando se muito grande', e);
       }
+    }
 
-      const { data: wps, error: wpsErr } = await supabaseClient
-        .from("waypoints")
-        .select("*")
-        .eq("role_id", roleId)
-        .order("ts", { ascending: true });
+    const exif = await window.exifr.gps(file).catch(() => null);
+    if (exif?.latitude && exif?.longitude) {
+      const base64 = await fileToBase64(file);
+      const ts = exif?.DateTimeOriginal || new Date(file.lastModified);
 
-      if (wpsErr) {
-        console.error('Erro carregando waypoints:', wpsErr);
-        hideLoadingOverlay();
-        return;
-      }
-
-      showSharedRoleView({
-        titulo: role.titulo,
-        creatorName: role.creator_name,
-        creatorPhoto: role.creator_photo,
-        waypoints: wps || []
+      waypoints.push({
+        lat: exif.latitude,
+        lon: exif.longitude,
+        name: file.name,
+        thumbnail: base64,
+        isVideo: file.type.startsWith('video'),
+        ts
       });
-
-      // ensure overlay hides after view is ready
-      setTimeout(() => hideLoadingOverlay(), 300);
-    } catch (e) {
-      console.error("Erro carregando role do Supabase:", e);
-      hideLoadingOverlay();
     }
   }
 
-  function showSharedRoleView(roleData) {
-    // Carregar waypoints no mapa
-    loadRoleData(roleData.waypoints, roleData.titulo);
-    
-    // Criar header com info do rolê
-    const sharedHeader = document.createElement('div');
-    sharedHeader.id = 'sharedHeader';
-    sharedHeader.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.95);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 12px 16px;
-      padding-top: calc(12px + env(safe-area-inset-top, 0px));
-      z-index: 1001;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      color: white;
-    `;
-    
-    const creatorName = roleData.creatorName || "Alguém";
-    const creatorPhoto = roleData.creatorPhoto || "";
-    
-    sharedHeader.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 12px; width:100%;">
-        ${creatorPhoto ? `<img src="${creatorPhoto}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` : `
-          <div style="width: 40px; height: 40px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-            📍
-          </div>
-        `}
-        <div style="flex: 1;">
-          <div style="font-weight: 600; font-size: 16px;">${roleData.titulo || "Rolê"}</div>
-          <div style="font-size: 13px; opacity: 0.7;">por ${creatorName}</div>
-        </div>
+  // Sort temporally
+  waypoints.sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
-        <button id="createMyRole" style="background:#0066ff; border:none; color:white; padding:8px 12px; border-radius:8px; font-size:14px; min-height:auto;">
-          Criar meu rolê
-        </button>
+  // Render on map (preview)
+  renderWaypoints();
 
-        <button id="closeSharedView" style="background: transparent; border: none; color: white; font-size: 24px; padding: 4px 8px; min-height: auto;">✕</button>
-      </div>
-    `;
-    
-    document.body.appendChild(sharedHeader);
-    
-    // Ajustar mapa para não ficar atrás do header
-    const mapEl = document.getElementById('map');
-    mapEl.style.paddingTop = '64px';
-    
-    // Esconder bottom bar e action bar
-    const bottomTabs = document.getElementById('bottomTabs');
-    if (bottomTabs) bottomTabs.style.display = 'none';
-    const actionBar = document.getElementById('routeActionsBar');
-    if (actionBar) actionBar.style.display = 'none';
-    
-    // Botão para fechar e criar próprio rolê
-    document.getElementById('closeSharedView').addEventListener('click', () => {
-      const newUrl = window.location.origin + window.location.pathname;
-      window.history.pushState({}, '', newUrl);
-      sharedHeader.remove();
-      mapEl.style.paddingTop = '0';
-      if (bottomTabs) bottomTabs.style.display = 'flex';
-      clearMap();
-      map.setView([-27.5954, -48.5480], 13);
-    });
+  document.body.removeChild(loadingDiv);
 
-    // Botão Criar Meu Rolê
-    document.getElementById("createMyRole").addEventListener("click", () => {
-      const newUrl = window.location.origin + window.location.pathname;
-      window.history.pushState({}, '', newUrl);
+  // Show floating save button
+  showSaveButton();
 
-      sharedHeader.remove();
-      mapEl.style.paddingTop = '0';
-      if (bottomTabs) bottomTabs.style.display = 'flex';
+  // reset input
+  e.target.value = '';
+});
 
-      clearMap();
-      map.setView([-27.5954, -48.5480], 13);
+/* FEED RENDER */
+async function renderFeed() {
+  ensureProfile();
+  feedPanel.classList.add("active");
 
-      // abrir upload automaticamente
-      document.getElementById("uploadInput").click(); // Corrected ID usage
-    });
-  }
+  const { data: roles } = await supabaseClient
+    .from("roles")
+    .select("id, titulo, created_at")
+    .order("created_at", { ascending: false });
 
-  // Upload de mídias
-  document.getElementById("uploadInput").addEventListener("change", async (e) => {
-    // (handler logic unchanged, just adapted to uploadInput)
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+  const list = document.getElementById("feedList");
+  list.innerHTML = roles.map(r => `
+    <div class="role-card">
+      <h3>${r.titulo}</h3>
+      <p>${new Date(r.created_at).toLocaleString()}</p>
+      <button onclick="openRole('${r.id}')">Abrir</button>
+    </div>
+  `).join("");
+}
 
-    // Mostrar loading
-    const loadingDiv = document.createElement('div');
-    loadingDiv.innerHTML = '<div class="spinner"></div><p style="text-align:center; margin-top:10px;">Processando mídias...</p>';
-    loadingDiv.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9998; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;';
-    document.body.appendChild(loadingDiv);
+/* PROFILE RENDER */
+async function renderProfile() {
+  ensureProfile();
+  profilePanel.classList.add("active");
 
-    waypoints = [];
-    let ignoredFiles = [];
-    clearMap();
+  document.getElementById("profileName").textContent = currentProfile.name;
+  document.getElementById("profileUser").textContent = currentProfile.username;
 
-    for (let file of files) {
-      if (!file.type.startsWith("image")) {
-        ignoredFiles.push(file.name + " (somente fotos são permitidas)");
-        continue;
-      }
+  const { data: roles } = await supabaseClient
+    .from("roles")
+    .select("id, titulo, created_at")
+    .eq("profile_id", currentProfile.id)
+    .order("created_at", { ascending: false });
 
-      const exif = await window.exifr.gps(file);
-      if (exif?.latitude && exif?.longitude) {
-        const thumbnail = await fileToBase64(file);
-        const ts = exif?.DateTimeOriginal || new Date(file.lastModified);
-        
-        waypoints.push({
-          lat: exif.latitude,
-          lon: exif.longitude,
-          name: file.name,
-          thumbnail,
-          isVideo: false,
-          ts
-        });
-      } else {
-        ignoredFiles.push(file.name + " (sem localização GPS)");
-      }
-    }
+  document.getElementById("profileRoles").innerHTML = roles.map(r => `
+    <div class="role-card">
+      <h3>${r.titulo}</h3>
+      <button onclick="openRole('${r.id}')">Abrir</button>
+      <button onclick="shareRole('${r.id}')">Compartilhar</button>
+    </div>
+  `).join("");
+}
 
-    // Mostrar toast para arquivos ignorados
-    if (ignoredFiles.length > 0) {
-      showToast(ignoredFiles.length + " arquivo(s) ignorado(s)");
-    }
-    // Ordenar por timestamp
-    waypoints.sort((a, b) => new Date(a.ts) - new Date(b.ts));
-
-    // Renderizar no mapa
-    renderWaypoints();
-    
-    document.body.removeChild(loadingDiv);
-
-    // Mudar UI para estado de rota pronta para salvar
-    document.getElementById("routeActionsBar").style.display = "flex";
-    document.getElementById("saveRoute").disabled = false;
-    document.getElementById("shareRoute").style.display = "none";
-    
-    e.target.value = '';
+/* HELPERS */
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
   });
+}
 
-  function clearMap() {
-    // Remove all markers added by the app
-    if (markers && markers.length) {
-      markers.forEach(m => {
-        if (m && map.hasLayer(m)) map.removeLayer(m);
-      });
-    }
-    markers = [];
+async function compressImage(base64, maxWidth = 300) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
+}
 
-    // Remove current route if exists
-    if (currentRoute && map.hasLayer(currentRoute)) {
-      map.removeLayer(currentRoute);
-    }
-    currentRoute = null;
+async function getVideoDuration(file) {
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => resolve(0);
+    video.src = URL.createObjectURL(file);
+  });
+}
 
-    // Esconde a barra de ações
-    const actionBar = document.getElementById('routeActionsBar');
-    if (actionBar) actionBar.style.display = 'none';
+window.openRole = async id => {
+  location.href = location.pathname + "?role=" + id;
+};
 
-    // Remove o botão de compartilhamento do rolê aberto, se existir
-    const shareBtn = document.getElementById('shareCurrentRole');
-    if (shareBtn) shareBtn.remove();
-  }
+window.shareRole = id => {
+  navigator.clipboard.writeText(location.origin + location.pathname + "?role=" + id);
+  alert("Link copiado!");
+};
 
-  function renderWaypoints() {
-    clearMap();
-    const bounds = [];
+function showSaveButton() {
+  if (document.getElementById('saveRouteFloating')) return;
+  const btn = document.createElement('button');
+  btn.id = 'saveRouteFloating';
+  btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Rolê';
+  btn.style.cssText = 'position:fixed; bottom:120px; left:50%; transform:translateX(-50%); z-index:10003; padding:12px 18px; border-radius:999px; background:#0066ff; color:white; border:none; font-weight:600;';
+  btn.addEventListener('click', () => {
+    // open title modal
+    const suggested = 'Meu Rolê ' + new Date().toLocaleDateString();
+    window.pendingWaypoints = waypoints.slice();
+    window.openRouteTitleModal(suggested);
+  });
+  document.body.appendChild(btn);
+}
+function hideSaveButton() { const b = document.getElementById('saveRouteFloating'); if (b) b.remove(); }
 
-    waypoints.forEach((wp, i) => {
-      const marker = L.marker([wp.lat, wp.lon]).addTo(map);
-      markers.push(marker);
+async function savePendingRoute() {
+  try {
+    if (!window.pendingWaypoints || !window.pendingRouteTitle) return;
+    const profile = window.currentProfile || await ensureProfile();
+    const titulo = window.pendingRouteTitle;
 
-      const mediaHTML = `<img src="${wp.thumbnail}" class="thumbnail">`;
+    showLoadingOverlay('Salvando rolê...');
 
-      marker.bindPopup(`
-        <div style="text-align:center; min-width:200px;">
-          <b>${wp.name}</b><br>
-          ${mediaHTML}<br>
-          <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
-            <button onclick="window.focusMarker(${i - 1})" style="flex:1;">⬅️</button>
-            <button onclick="window.focusMarker(${i + 1})" style="flex:1;">➡️</button>
-          </div>
-        </div>
-      `);
+    const role = await createRoleOnSupabase({ titulo, creator_name: profile.name || profile.username || 'Visitante', creator_photo: profile.photo_url || null, profile_id: profile.id });
+    const roleId = role.id;
 
-      // Insert popupopen handler before click handler
-      marker.on("popupopen", (e) => {
-        setTimeout(() => {
-          const popup = e.popup._container;
-          if (!popup) return;
-          const h = popup.offsetHeight;
-          map.panBy([0, -h / 2], { animate: true });
-        }, 60);
-      });
-
-      marker.on("click", () => {
-        map.setView(marker.getLatLng(), 15, { animate: false });
-        marker.openPopup();
-      });
-
-      bounds.push([wp.lat, wp.lon]);
-    });
-
-    if (bounds.length > 0) {
-      map.once("moveend", () => {
-        if (waypoints.length > 1) {
-          const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
-
-          fetch(`https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`)
-            .then(r => r.json())
-            .then(data => {
-              if (!data || data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-                showToast("⚠️ Rota não disponível");
-                console.warn("OSRM fallback triggered:", data);
-                return;
-              }
-              const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-              if (currentRoute) map.removeLayer(currentRoute);
-              currentRoute = L.polyline(routeCoords, {
-                color: '#0066ff',
-                weight: 4,
-                opacity: 0.9
-              }).addTo(map);
-            })
-            .catch(err => {
-              console.error("Erro ao carregar rota OSRM:", err);
-              showToast("⚠️ Falha ao carregar rota");
-            });
-        }
-      });
-
-      const sharedHeaderEl = document.getElementById("sharedHeader");
-      let topPad = 50;
-
-      if (sharedHeaderEl) {
-        const rect = sharedHeaderEl.getBoundingClientRect();
-        topPad = rect.height + 20; // dynamic header height + small offset
-      }
-
-      map.flyToBounds(bounds, {
-        paddingTopLeft: [0, topPad],
-        paddingBottomRight: [0, 100], // Adjusted for the action bar (70px) + bottomTabs (70px)
-        maxZoom: 15,
-        animate: true
-      });
-    }
-    // --- M4: Auto-focus quando há apenas 1 waypoint ---
-    if (markers.length === 1) {
-      const m = markers[0];
-      setTimeout(() => {
-        map.setView(m.getLatLng(), 16, { animate: true });
-        m.openPopup();
-      }, 200);
-    }
-    // --- fim M4 ---
-  }
-
-  function loadRoleData(data, title = null) {
-    waypoints = data;
-    renderWaypoints();
-    
-    // Se não for um rolê compartilhado via URL, mostra a barra de ações no modo 'compartilhar'
-    const isShared = new URLSearchParams(window.location.search).has("role");
-    if (!isShared) {
-      document.getElementById("routeActionsBar").style.display = "flex";
-      document.getElementById("shareRoute").style.display = "inline-flex";
-      document.getElementById("saveRoute").disabled = true;
-    }
-  }
-
-  // Expor focusMarker globalmente para os botões onclick
-  window.focusMarker = function(index) {
-    if (!markers.length) return;
-    const total = markers.length;
-    const i = ((index % total) + total) % total;
-    const m = markers[i];
-    map.setView(m.getLatLng(), 15, { animate: false });
-    m.openPopup();
-  };
-
-  // Salvar rolê
-  const saveRouteBtn = document.getElementById("saveRoute");
-  if (saveRouteBtn) saveRouteBtn.addEventListener("click", async () => {
-    try {
-      if (!waypoints.length) {
-        showToast("Nenhum rolê para salvar.");
-        return;
-      }
-
-      // NOVO: Garantir que o usuário esteja autenticado
-      if (!window.currentProfile || !window.currentProfile.id) {
-          showToast('É preciso estar logado para salvar rolês.');
-          // Tenta focar na tela de login se não estiver logado
-          document.getElementById("loginScreen").classList.add("active");
-          return;
-      }
-
-      const titulo = prompt("Dê um título ao seu rolê:");
-      if (!titulo) return;
-
-      showLoadingOverlay('Salvando rolê...');
-
-      // Usar dados do perfil autenticado
-      const profileId = window.currentProfile.id;
-      const creator_name = window.currentProfile?.name || "Anônimo";
-      const creator_photo = window.currentProfile?.photo_url || null;
-
-      const role = await createRoleOnSupabase({
-        titulo,
-        creator_name,
-        creator_photo,
-        profile_id: profileId
-      });
-
-      const roleId = role.id;
-
-      // Upload das thumbnails + construção do array final
-      const waypointsPrepared = [];
-      for (let wp of waypoints) {
-        let thumbURL = null;
-
-        const compressed = await compressImage(wp.thumbnail, 300);
+    const waypointsPrepared = [];
+    for (let wp of window.pendingWaypoints) {
+      let thumbURL = null;
+      if (!wp.isVideo) {
+        const compressed = await compressImage(wp.thumbnail, 600);
         thumbURL = await uploadThumbnailToSupabase(compressed, roleId, wp.name);
-
-        waypointsPrepared.push({
-          lat: wp.lat,
-          lon: wp.lon,
-          name: wp.name,
-          thumbnail_url: thumbURL,
-          is_video: false,
-          ts: wp.ts
-        });
       }
-
-      // Inserir todos os waypoints de uma vez
-      await insertWaypointsBulk(roleId, waypointsPrepared);
-
-      // UI
-      hideLoadingOverlay();
-      showToast("Rolê salvo com sucesso!");
-      window.lastSavedRoleId = roleId;
-
-      document.getElementById("shareRoute").style.display = "inline-flex";
-      document.getElementById("saveRoute").disabled = true;
-
-    } catch (err) {
-      console.error(err);
-      hideLoadingOverlay();
-      showToast("Erro ao salvar o rolê 😢");
+      waypointsPrepared.push({ lat: wp.lat, lon: wp.lon, name: wp.name, thumbnail_url: thumbURL, is_video: !!wp.isVideo, ts: wp.ts });
     }
-  });
-  
-  // Profile
-  function loadProfileData() {
-    const p = window.currentProfile || {};
-    document.getElementById("profileName").textContent = p.name || "—";
-    document.getElementById("profileUser").textContent = p.username ? ("@" + p.username) : "—";
-    document.getElementById("profileEmail").textContent = p.email || "—";
-    const photo = window.currentProfile?.photo_url || localStorage.getItem("profilePhoto");
-    const preview = document.getElementById("profilePhotoPreview");
-    if (photo) {
-      preview.src = photo;
-      preview.style.display = "block";
-    } else {
-      preview.style.display = "none";
-    }
-    renderProfileRoles();
+
+    await insertWaypointsBulk(roleId, waypointsPrepared);
+
+    hideLoadingOverlay();
+    showToast('Rolê salvo com sucesso!');
+    window.lastSavedRoleId = roleId;
+    hideSaveButton();
+    renderFeed();
+
+    // cleanup
+    window.pendingWaypoints = null;
+    window.pendingRouteTitle = null;
+  } catch (err) {
+    console.error('Erro ao salvar rolê:', err);
+    hideLoadingOverlay();
+    showToast('Erro ao salvar o rolê');
   }
+}
 
-  document.getElementById("closeProfile").addEventListener("click", () => {
-    document.getElementById("profileModal").classList.remove("active");
-    // Garante que o botão de compartilhamento de rolê aberto seja removido ao fechar o modal
-    const shareCurrentRoleBtn = document.getElementById("shareCurrentRole");
-    if(shareCurrentRoleBtn) shareCurrentRoleBtn.remove(); 
-  });
+/* Clear map markers and route */
+function clearMap() {
+  // Remove markers and current route cleanly
+  // Remove all marker layers
+  if (markers && markers.length) {
+    markers.forEach(m => { if (m && map.hasLayer(m)) map.removeLayer(m); });
+  }
+  markers = [];
 
-  async function renderProfileRoles() {
-    const pid = window.currentProfile?.id;
-    if (!pid) {
-      document.getElementById("profileRoles").innerHTML =
-        '<p style="text-align:center; opacity:0.5;">Crie um rolê para aparecer aqui</p>';
-      return;
-    }
+  // Remove polyline route
+  if (currentRoute && map.hasLayer(currentRoute)) {
+    map.removeLayer(currentRoute);
+    currentRoute = null;
+  }
+}
 
-    const { data: roles } = await supabaseClient
-      .from("roles")
-      .select("id, titulo, created_at")
-      .eq("profile_id", pid)
-      .order("created_at", { ascending: false });
+/* Render waypoints with markers and route */
+function renderWaypoints() {
+  // Render markers, popups, and request OSRM for route; auto-fit bounds
+  clearMap();
+  const bounds = [];
 
-    if (!roles || roles.length === 0) {
-      document.getElementById("profileRoles").innerHTML =
-        '<p style="text-align:center; opacity:0.5;">Nenhum rolê salvo ainda</p>';
-      return;
-    }
+  waypoints.forEach((wp, i) => {
+    const marker = L.marker([wp.lat, wp.lon]).addTo(map);
+    markers.push(marker);
 
-    const html = roles.map(r => `
-      <div class="role-card">
-        <h3>${r.titulo}</h3>
-        <div class="date">${new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
-        <div class="button-group">
-          <button onclick="window.openLoadedRole('${r.id}')" class="btn-secondary">Abrir</button>
-          <button onclick="window.compartilharRole('${r.id}')">Compartilhar</button>
+    const mediaHTML = wp.isVideo
+      ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline></video>`
+      : `<img src="${wp.thumbnail}" class="thumbnail">`;
+
+    marker.bindPopup(`
+      <div style="text-align:center; min-width:200px;">
+        <b>${wp.name}</b><br>
+        ${mediaHTML}<br>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
+          <button onclick="window.focusMarker(${i - 1})" style="flex:1;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <button onclick="window.focusMarker(${i + 1})" style="flex:1;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
       </div>
-    `).join("");
+    `);
 
-    document.getElementById("profileRoles").innerHTML = html;
-  }
+    marker.on('popupopen', (e) => {
+      setTimeout(() => {
+        const popup = e.popup._container;
+        if (!popup) return;
+        const h = popup.offsetHeight;
+        map.panBy([0, -h / 2], { animate: true });
+      }, 60);
+    });
 
-  window.openLoadedRole = async function(id) {
-    try {
-      showLoadingOverlay('Abrindo rolê...');
+    marker.on('click', () => {
+      map.setView(marker.getLatLng(), 15, { animate: true });
+      marker.openPopup();
+    });
 
-      const { data: wps, error } = await supabaseClient
-        .from("waypoints")
-        .select("*")
-        .eq("role_id", id)
-        .order("ts", { ascending: true });
+    bounds.push([wp.lat, wp.lon]);
+  });
 
-      if (error) {
-        console.error('Erro ao carregar waypoints:', error);
-        hideLoadingOverlay();
-        return;
+  if (bounds.length > 0) {
+    map.once('moveend', () => {
+      if (waypoints.length > 1) {
+        const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
+        fetch(`https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`)
+          .then(r => r.json())
+          .then(data => {
+            if (!data || data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+              console.warn('OSRM: rota indisponível', data);
+              return;
+            }
+            const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            if (currentRoute && map.hasLayer(currentRoute)) map.removeLayer(currentRoute);
+            currentRoute = L.polyline(routeCoords, { color: '#0066ff', weight: 4, opacity: 0.9 }).addTo(map);
+          })
+          .catch(err => console.error('Erro ao carregar rota OSRM:', err));
       }
-
-      document.getElementById("profileModal").classList.remove("active");
-      clearMap();
-      loadRoleData(wps);
-      window.currentOpenedRoleId = id;
-
-      // Remove o botão de compartilhamento anterior, se existir
-      const existingShareBtn = document.getElementById("shareCurrentRole");
-      if(existingShareBtn) existingShareBtn.remove();
-      
-      // Insere o botão de compartilhamento flutuante
-      document.getElementById("tabUpload").insertAdjacentHTML("afterend", `
-        <button id="shareCurrentRole" style="
-          position:absolute; bottom:35px; right:20px;
-          background:#333; border:1px solid #555; color:white;
-          padding:10px 14px; border-radius:12px; z-index:1001;">
-          Compartilhar
-        </button>
-      `);
-      document.getElementById("shareCurrentRole").addEventListener("click", () => {
-        window.compartilharRole(id);
-      });
-
-      // hide loader shortly after render
-      setTimeout(() => hideLoadingOverlay(), 300);
-    } catch (e) {
-      console.error('Erro em openLoadedRole:', e);
-      hideLoadingOverlay();
-    }
-  };
-
-  // Compartilhar
-  const shareRouteBtn = document.getElementById("shareRoute");
-  if (shareRouteBtn) shareRouteBtn.addEventListener("click", () => {
-    const id = window.lastSavedRoleId || window.currentOpenedRoleId;
-    if (id) window.compartilharRole(id);
-  });
-  
-  window.compartilharRole = function(id) {
-    const shareURL = `${location.origin}${location.pathname}?role=${id}`;
-    navigator.clipboard.writeText(shareURL).then(() => {
-      showToast("🔗 Link copiado!");
     });
-  };
-  
-  // Helper functions
-  async function fileToBase64(file) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
+
+    map.flyToBounds(bounds, {
+      paddingTopLeft: [0, 80],
+      paddingBottomRight: [0, 110],
+      maxZoom: 15,
+      animate: true,
+      duration: 0.91
     });
   }
 
-
-  async function compressImage(base64, maxWidth = 300) {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const scale = maxWidth / img.width;
-        canvas.width = maxWidth;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-      img.src = base64;
-    });
+  // auto-open popup when only one marker
+  if (markers.length === 1) {
+    setTimeout(() => {
+      markers[0].openPopup();
+      map.setView(markers[0].getLatLng(), 16, { animate: true });
+    }, 200);
   }
-
-  // Story Editor (Removed Universal Share Modal - it was not used)
-  document.getElementById("closeStoryEditor").addEventListener("click", () => {
-      document.getElementById("storyEditor").classList.remove("active");
-  });
-  // NOTE: A lógica de edição/exportação de stories ainda está faltando e deve ser implementada em 'exportStory' e 'storyCanvas'
-
-  // Gestão de teclado virtual
-  let keyboardOpen = false;
-  ['focus', 'blur'].forEach(event => {
-    document.addEventListener(event, e => {
-      if (e.target.matches('input, textarea')) {
-        keyboardOpen = event === 'focus';
-        document.documentElement.classList.toggle('keyboard-open', keyboardOpen);
-      }
-    }, true);
-  });
-
-  // Prevent bounce scroll
-  document.body.addEventListener('touchmove', e => {
-    if (e.target.closest('#map')) return;
-    if (!e.target.closest('.modal-fullscreen, #profileModal')) {
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  console.log('Rolezinho mobile-first loaded ✅');
 }
 </script>
 
+  <!-- ROUTE TITLE MODAL -->
+  <div id="routeTitleModal" class="panel" style="display:none; z-index:20000;">
+    <h2>Nome do Rolê</h2>
+    <p>Escolha um título para sua rota.</p>
+    <input id="routeTitleInput" type="text" placeholder="Meu Rolê" style="padding:12px; border-radius:8px; border:none; margin-bottom:20px; width:100%;">
+    <button id="confirmRouteTitle" style="padding:12px; border-radius:8px; width:100%; margin-bottom:10px;">Continuar</button>
+    <button id="cancelRouteTitle" class="btn-secondary" style="padding:12px; border-radius:8px; width:100%;">Cancelar</button>
+  </div>
+
+  <!-- ACCOUNT CREATION MODAL -->
+  <div id="createAccountModal" class="panel" style="display:none; z-index:20001;">
+    <h2>Criar Conta</h2>
+    <input id="caUsername" type="text" placeholder="Username" style="padding:12px; border-radius:8px; border:none; margin-bottom:12px; width:100%;">
+    <input id="caEmail" type="email" placeholder="Email" style="padding:12px; border-radius:8px; border:none; margin-bottom:12px; width:100%;">
+    <input id="caPassword" type="password" placeholder="Senha" style="padding:12px; border-radius:8px; border:none; margin-bottom:20px; width:100%;">
+    <button id="createAccountBtnFinal" style="padding:12px; border-radius:8px; width:100%; margin-bottom:10px;">Criar Conta</button>
+    <button id="cancelCreateAccount" class="btn-secondary" style="padding:12px; border-radius:8px; width:100%;">Cancelar</button>
+  </div>
+
+<script>
+// Show route title modal after user taps Save (trigger: role creation process)
+window.openRouteTitleModal = function(suggestedTitle) {
+  document.getElementById("routeTitleInput").value = suggestedTitle || "";
+  document.getElementById("routeTitleModal").style.display = "flex";
+};
+
+document.getElementById("cancelRouteTitle").onclick = () => {
+  document.getElementById("routeTitleModal").style.display = "none";
+};
+
+document.getElementById("confirmRouteTitle").onclick = () => {
+  const title = document.getElementById("routeTitleInput").value.trim();
+  if (!title) return alert("Escolha um título.");
+  document.getElementById("routeTitleModal").style.display = "none";
+  document.getElementById("createAccountModal").style.display = "flex";
+  window.pendingRouteTitle = title;
+};
+
+// ACCOUNT CREATION
+document.getElementById("cancelCreateAccount").onclick = () => {
+  document.getElementById("createAccountModal").style.display = "none";
+};
+
+document.getElementById("createAccountBtnFinal").onclick = async () => {
+  const username = document.getElementById("caUsername").value.trim();
+  const email = document.getElementById("caEmail").value.trim();
+  const password = document.getElementById("caPassword").value.trim();
+
+  if (!username || !email || !password) { 
+    alert("Preencha todos os campos."); 
+    return; 
+  }
+
+  // STEP 1 — Create user in Supabase Auth
+  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+    email,
+    password
+  });
+
+  if (signUpError) {
+    alert("Erro ao criar conta.");
+    console.error(signUpError);
+    return;
+  }
+
+  const authId = signUpData.user?.id;
+
+  // Do NOT manually insert into profiles — trigger will handle it
+  window.currentProfile = {
+    auth_uid: authId,
+    username,
+    email,
+    name: username
+  };
+
+  // Close modal
+  document.getElementById('createAccountModal').style.display = 'none';
+  alert('Conta criada! Salvando seu rolê...');
+
+  // STEP 2 — Continue saving the pending route
+  await savePendingRoute();
+};
+</script>
 </body>
 </html>
