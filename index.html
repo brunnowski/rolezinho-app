@@ -501,136 +501,144 @@ async function insertWaypointsBulk(roleId, waypointsArray) {
 // --- fim Supabase Client ---
 
 // Login handler and tab logic
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  const email = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPassword").value.trim();
+document.addEventListener("DOMContentLoaded", () => {
+  const loginBtn = document.getElementById("loginBtn");
+  if (loginBtn) loginBtn.addEventListener("click", async () => {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value.trim();
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) { showToast("Login inválido"); return; }
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { showToast("Login inválido"); return; }
 
-  document.getElementById("loginScreen").classList.remove("active");
-});
-
-document.getElementById("createAccountBtn").addEventListener("click", async () => {
-  document.getElementById("loginScreen").classList.remove("active");
-  document.getElementById("createProfileScreen").classList.add("active");
-});
-
-// Handler para voltar ao login
-document.getElementById("cpBack").addEventListener("click", () => {
-  document.getElementById("createProfileScreen").classList.remove("active");
-  document.getElementById("loginScreen").classList.add("active");
-});
-
-// Handler de criar conta (novo)
-document.getElementById("cpCreateBtn").addEventListener("click", async () => {
-  const email = document.getElementById("cpEmail").value.trim();
-  const password = document.getElementById("cpPassword").value.trim();
-  const name = document.getElementById("cpName").value.trim();
-  const username = document.getElementById("cpUsername").value.trim();
-
-  if (!email || !password || !name || !username) {
-    showToast("Preencha todos os campos");
-    return;
-  }
-
-  // 1) Validar username único
-  const { data: existingUser } = await supabaseClient
-    .from("profiles")
-    .select("id")
-    .eq("username", username)
-    .limit(1);
-
-  if (existingUser && existingUser.length > 0) {
-    showToast("Esse nome de usuário já está em uso");
-    return;
-  }
-
-  // 2) Criar usuário no Auth
-  const { data: authData, error: authError } =
-    await supabaseClient.auth.signUp({ email, password });
-
-  if (authError) {
-    showToast("Erro ao criar conta");
-    return;
-  }
-
-  const uid = authData?.user?.id;
-  if (!uid) {
-    showToast("Erro interno");
-    return;
-  }
-
-  // 3) Upload opcional da foto
-  let photoURL = null;
-  const photoFile = document.getElementById("cpPhotoInput").files[0];
-  if (photoFile) {
-    const base64 = await fileToBase64(photoFile);
-    const blob = await (await fetch(base64)).blob();
-    const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
-    const path = `profile_photos/${uid}.${ext}`;
-
-    const { error: uploadErr } = await supabaseClient.storage
-      .from("thumbnails")
-      .upload(path, blob, { upsert: true, contentType: blob.type });
-
-    if (!uploadErr) {
-      const { data: pub } = supabaseClient.storage
-        .from("thumbnails")
-        .getPublicUrl(path);
-      photoURL = pub.publicUrl;
-    }
-  }
-
-  // 4) Criar registro de perfil
-  const { error: profileError } = await supabaseClient
-    .from("profiles")
-    .insert({
-      auth_uid: uid,
-      email,
-      name,
-      username,
-      photo_url: photoURL
-    });
-
-  if (profileError) {
-    console.error(profileError);
-    showToast("Erro ao salvar perfil");
-    return;
-  }
-
-  // 5) Login automático
-  const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
+    document.getElementById("loginScreen").classList.remove("active");
   });
 
-  if (loginErr) {
-    showToast("Conta criada, mas login falhou");
+  const createAccountBtn = document.getElementById("createAccountBtn");
+  if (createAccountBtn) createAccountBtn.addEventListener("click", async () => {
+    document.getElementById("loginScreen").classList.remove("active");
+    document.getElementById("createProfileScreen").classList.add("active");
+  });
+
+  // Handler para voltar ao login
+  const cpBack = document.getElementById("cpBack");
+  if (cpBack) cpBack.addEventListener("click", () => {
     document.getElementById("createProfileScreen").classList.remove("active");
     document.getElementById("loginScreen").classList.add("active");
-    return;
-  }
+  });
 
-  // 6) Finalizar
-  showToast("Bem-vindo!");
-  document.getElementById("createProfileScreen").classList.remove("active");
-});
+  // Handler de criar conta (novo)
+  const cpCreateBtn = document.getElementById("cpCreateBtn");
+  if (cpCreateBtn) cpCreateBtn.addEventListener("click", async () => {
+    const email = document.getElementById("cpEmail").value.trim();
+    const password = document.getElementById("cpPassword").value.trim();
+    const name = document.getElementById("cpName").value.trim();
+    const username = document.getElementById("cpUsername").value.trim();
 
-// Mostrar/ocultar senha
-document.getElementById("toggleCpPassword").addEventListener("click", () => {
-  const input = document.getElementById("cpPassword");
-  input.type = input.type === "password" ? "text" : "password";
-});
+    if (!email || !password || !name || !username) {
+      showToast("Preencha todos os campos");
+      return;
+    }
 
-// Preview da foto de perfil
-document.getElementById("cpPhotoInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const base64 = await fileToBase64(file);
-  const preview = document.getElementById("cpPhotoPreview");
-  preview.src = base64;
-  preview.style.display = "block";
+    // 1) Validar username único
+    const { data: existingUser } = await supabaseClient
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .limit(1);
+
+    if (existingUser && existingUser.length > 0) {
+      showToast("Esse nome de usuário já está em uso");
+      return;
+    }
+
+    // 2) Criar usuário no Auth
+    const { data: authData, error: authError } =
+      await supabaseClient.auth.signUp({ email, password });
+
+    if (authError) {
+      showToast("Erro ao criar conta");
+      return;
+    }
+
+    const uid = authData?.user?.id;
+    if (!uid) {
+      showToast("Erro interno");
+      return;
+    }
+
+    // 3) Upload opcional da foto
+    let photoURL = null;
+    const photoFile = document.getElementById("cpPhotoInput").files[0];
+    if (photoFile) {
+      const base64 = await fileToBase64(photoFile);
+      const blob = await (await fetch(base64)).blob();
+      const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
+      const path = `profile_photos/${uid}.${ext}`;
+
+      const { error: uploadErr } = await supabaseClient.storage
+        .from("thumbnails")
+        .upload(path, blob, { upsert: true, contentType: blob.type });
+
+      if (!uploadErr) {
+        const { data: pub } = supabaseClient.storage
+          .from("thumbnails")
+          .getPublicUrl(path);
+        photoURL = pub.publicUrl;
+      }
+    }
+
+    // 4) Criar registro de perfil
+    const { error: profileError } = await supabaseClient
+      .from("profiles")
+      .insert({
+        auth_uid: uid,
+        email,
+        name,
+        username,
+        photo_url: photoURL
+      });
+
+    if (profileError) {
+      console.error(profileError);
+      showToast("Erro ao salvar perfil");
+      return;
+    }
+
+    // 5) Login automático
+    const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (loginErr) {
+      showToast("Conta criada, mas login falhou");
+      document.getElementById("createProfileScreen").classList.remove("active");
+      document.getElementById("loginScreen").classList.add("active");
+      return;
+    }
+
+    // 6) Finalizar
+    showToast("Bem-vindo!");
+    document.getElementById("createProfileScreen").classList.remove("active");
+  });
+
+  // Mostrar/ocultar senha
+  const toggleCpPassword = document.getElementById("toggleCpPassword");
+  if (toggleCpPassword) toggleCpPassword.addEventListener("click", () => {
+    const input = document.getElementById("cpPassword");
+    input.type = input.type === "password" ? "text" : "password";
+  });
+
+  // Preview da foto de perfil
+  const cpPhotoInput = document.getElementById("cpPhotoInput");
+  if (cpPhotoInput) cpPhotoInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    const preview = document.getElementById("cpPhotoPreview");
+    preview.src = base64;
+    preview.style.display = "block";
+  });
 });
 
 document.getElementById("tabUpload").addEventListener("click", () => {
