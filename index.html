@@ -1,668 +1,706 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Rolezinho</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-<style>
-  html, body {
-    margin: 0; padding: 0; height: 100%; width: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial;
-    overflow: hidden;
-    background: black;
-    overscroll-behavior: none;
-    touch-action: none;
-  }
-  #map {
-    position: fixed; inset: 0;
-    z-index: 1;
-    transform: translateZ(0);
-    will-change: transform;
-  }
-
-  /* Bottom navigation */
-  #bottomTabs {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    height: 70px;
-    background: rgba(0,0,0,0.9);
-    border-top: 1px solid rgba(255,255,255,0.15);
-    display: flex; justify-content: space-around; align-items: center;
-    z-index: 10000;
-  }
-  #bottomTabs button {
-    flex: 1; height: 100%;
-    background: none; border: none; color: white;
-    font-size: 26px; cursor: pointer;
-  }
-
-  /* Central camera button */
-  #tabUpload {
-    position: absolute;
-    bottom: 35px; left: 50%; transform: translateX(-50%);
-    width: 75px; height: 75px;
-    border-radius: 50%;
-    border: none; color: white;
-    background: #0066ff;
-    font-size: 32px;
-    display: flex; justify-content: center; align-items: center;
-    z-index: 10001;
-    animation: pulse 2s infinite ease-in-out;
-  }
-  @keyframes pulse {
-    0% { transform: translateX(-50%) scale(1); }
-    50% { transform: translateX(-50%) scale(1.08); }
-    100% { transform: translateX(-50%) scale(1); }
-  }
-
-  /* Panels */
-  .panel {
-    position: fixed; inset: 0;
-    background: black; color: white;
-    z-index: 9999;
-    display: none; flex-direction: column;
-    padding: 20px; overflow-y: auto;
-    transform: translateZ(0);
-    will-change: transform;
-  }
-  .panel.active { display: flex; }
-
-  .role-card {
-    background: #111;
-    padding: 16px; border-radius: 12px;
-    margin-bottom: 14px;
-    border: 1px solid #333;
-  }
-
-  #mapPanel { padding:0; }
-  #mapPanel #map { position:absolute; inset:0; }
-  #floatingCameraBtn {
-    position: absolute;
-    bottom: calc(90px + env(safe-area-inset-bottom));
-    right: 20px;
-    width: 65px;
-    height: 65px;
-    border-radius: 50%;
-    background: #0066ff;
-    color: white;
-    font-size: 28px;
-    border:none;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    animation: pulse 2s infinite ease-in-out;
-    z-index: 10002;
-  }
-  .thumbnail {
-    max-width: 100%;
-    max-height: 150px;
-    border-radius: 8px;
-  }
-  .spinner {
-    border: 6px solid rgba(255, 255, 255, 0.2);
-    border-top: 6px solid #0066ff;
-    border-radius: 50%;
-    width: 48px;
-    height: 48px;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
-  }
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Rolezinho App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
+            background: #f4f8fb;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        #app-content {
+            height: calc(100dvh - 65px);
+            padding-bottom: 65px;
+            box-sizing: border-box;
+        }
+        .bottom-menu {
+            position: fixed;
+            z-index: 900;
+            left: 0; right: 0; bottom: 0;
+            height: 65px;
+            background: #fff;
+            box-shadow: 0 -2px 15px rgba(60, 60, 60, 0.08);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+        .bottom-menu button {
+            background: none;
+            border: none;
+            flex: 1 1 0;
+            color: #777;
+            font-size: 14px;
+            padding: 8px 0 0 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: color 0.17s;
+            outline: none;
+            cursor: pointer;
+        }
+        .bottom-menu button.active, .bottom-menu button:focus {
+            color: #2196F3;
+        }
+        .bottom-menu i {
+            font-size: 22px;
+        }
+        /* MAP PAGE */
+        #map {
+            height: calc(100dvh - 65px);
+            width: 100vw;
+            position: relative;
+            z-index: 1;
+        }
+        /* Thumbnail carousel - mobile first */
+        #thumb-carousel {
+            position: fixed;
+            left: 0; right: 0; bottom: 150px; /* above floating button */
+            height: 86px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 12px;
+            box-sizing: border-box;
+            z-index: 1002;
+            pointer-events: none;
+        }
+        .thumbs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 6px 0;
+            flex: 1 1 auto;
+            scroll-snap-type: x mandatory;
+            pointer-events: auto;
+        }
+        .thumbs::-webkit-scrollbar{ height:8px }
+        .thumb {
+            flex: 0 0 auto;
+            width: 72px;
+            height: 72px;
+            border-radius: 10px;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            scroll-snap-align: center;
+            position: relative;
+            border: 2px solid transparent;
+        }
+        .thumb img{ width:100%; height:100%; object-fit:cover; display:block }
+        .thumb.active{ border-color:#2196F3 }
+        .thumb .index-badge{
+            position:absolute; right:6px; top:6px; background:rgba(0,0,0,0.45); color:#fff; font-size:11px; padding:3px 6px; border-radius:10px
+        }
+        .thumb-nav{
+            background: rgba(255,255,255,0.95);
+            border: none;
+            width: 36px; height:36px; border-radius:18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            font-size: 20px; line-height:0; display:flex; align-items:center; justify-content:center;
+            pointer-events: auto;
+        }
+        .floating-btn {
+            position: fixed;
+            bottom: 85px;
+            right: 24px;
+            z-index: 1001;
+            background: #2196F3;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(52,108,199,0.19);
+            width: 58px;
+            height: 58px;
+            font-size: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .floating-btn input[type="file"] {
+            display: none;
+        }
+        /* Auth modal */
+#auth-modal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; z-index:2000; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); }
+#auth-modal .modal-inner { width:92%; max-width:420px; background:#fff; padding:18px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
+#auth-modal input[type="email"], #auth-modal input[type="password"]{ width:100%; padding:10px; margin:8px 0; border-radius:8px; border:1px solid #ddd; box-sizing:border-box }
+#auth-modal .auth-actions{ display:flex; gap:8px; margin-top:12px }
+#auth-modal button{ flex:1; padding:10px; border-radius:8px; border:none }
+        /* Simple Home/Profile styling */
+        .simple-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 2em;
+            color: #444;
+        }
+        @media (max-width:600px) {
+            .floating-btn { right: 12px; bottom: 78px;}
+            .bottom-menu { height: 58px; }
+            #map { height: calc(100dvh - 58px); }
+        }
+    </style>
 </head>
 <body>
-
-<div id="mapPanel" class="panel active">
-  <div id="map" style="flex:1;"></div>
-  <button id="floatingCameraBtn">
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-      <path d="M23 19V7a2 2 0 0 0-2-2h-3l-2-3H8L6 5H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/>
-      <circle cx="12" cy="13" r="4"/>
-    </svg>
+    <div id="app-content">
+        <div id="home-page" class="simple-page">🏠 HOME</div>
+        <div id="map-page" style="display:none; height:100%">
+            <div id="map"></div>
+            <!-- THUMBNAIL CAROUSEL (mobile-first) -->
+            <div id="thumb-carousel" style="display:none" aria-hidden="false">
+                <button id="thumb-prev" class="thumb-nav" aria-label="Anterior">‹</button>
+                <div id="thumbs" class="thumbs" role="list"></div>
+                <button id="thumb-next" class="thumb-nav" aria-label="Próximo">›</button>
+            </div>
+            <button id="add-photos-btn" class="floating-btn" title="Adicionar Fotos">
+                <i class="fa fa-camera"></i>
+                <input type="file" accept="image/*,video/*" multiple id="photo-upload-input">
+            </button>
+        </div>
+        <div id="profile-page" class="simple-page" style="display:none">👤 PROFILE</div>
+    </div>
+    <!-- SAVE ROUTE BUTTON (shows after route plotted) -->
+<div id="save-rolê-container" style="position:fixed; left:16px; right:16px; bottom:240px; z-index:1003; display:none; justify-content:space-between; gap:8px;">
+  <button id="edit-route-btn" style="flex:0 0 58px; height:58px; border-radius:12px; border:none; background:#ffffff; box-shadow:0 6px 18px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center;">
+    <!-- pencil icon -->
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+  </button>
+  <button id="save-route-btn" style="flex:1; padding:12px 16px; border-radius:12px; border:none; background:#1e88e5; color:#fff; font-size:16px; box-shadow:0 6px 18px rgba(30,136,229,0.18); display:flex; align-items:center; justify-content:center; gap:6px;">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    Salvar
   </button>
 </div>
-
-<!-- FEED -->
-<div id="feedPanel" class="panel">
-  <h2 style="margin-bottom:20px;">Meus Rolês</h2>
-  <div id="feedList"></div>
+    <nav class="bottom-menu">
+        <button id="nav-home" class="active"><i class="fa fa-home"></i><span>Home</span></button>
+        <button id="nav-map"><i class="fa fa-map"></i><span>Map</span></button>
+        <button id="nav-profile"><i class="fa fa-user"></i><span>Profile</span></button>
+    </nav>
+    <!-- AUTH MODAL -->
+<div id="auth-modal">
+  <div class="modal-inner">
+    <h3 style="margin-top:0">Entrar ou Criar Conta</h3>
+    <input id="auth-email" type="email" placeholder="Seu email" />
+    <input id="auth-pass" type="password" placeholder="Sua senha" />
+    <p style="font-size:13px; color:#555; margin-top:6px;">
+      Ao criar uma conta, você concorda com os
+      <a href="https://app.kortex.co/public/document/0e51d08e-1574-4b7a-be8a-ca39fb346a9c" target="_blank" style="color:#1e88e5; text-decoration:underline;">
+        Termos de Uso
+      </a>.
+    </p>
+    <div class="auth-actions">
+      <button id="auth-login-btn" style="background:#1e88e5; color:#fff;">Login</button>
+      <button id="auth-signup-btn" style="background:#43a047; color:#fff;">Criar conta</button>
+    </div>
+  </div>
 </div>
+    <!-- LIBS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- EXIF Reader (tiny) -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+    <script>
+        // Tab switching logic
+        function showPage(page) {
+            document.getElementById('home-page').style.display = (page === 'home') ? '' : 'none';
+            document.getElementById('map-page').style.display = (page === 'map') ? '' : 'none';
+            document.getElementById('profile-page').style.display = (page === 'profile') ? '' : 'none';
+            document.getElementById('nav-home').classList.toggle('active', page === 'home');
+            document.getElementById('nav-map').classList.toggle('active', page === 'map');
+            document.getElementById('nav-profile').classList.toggle('active', page === 'profile');
+            if (page === 'map' && typeof renderMap === 'function') setTimeout(renderMap, 200);
+        }
+document.getElementById('nav-home').onclick = async ()=>{
+  if (pendingSave) { showAuthModal(); return; }
+  showPage('home');
+};
+document.getElementById('nav-map').onclick = ()=>showPage('map');
+document.getElementById('nav-profile').onclick = async ()=>{
+  if (pendingSave) { showAuthModal(); return; }
+  showPage('profile');
+};
 
-<!-- PROFILE -->
-<div id="profilePanel" class="panel">
-  <h2 style="margin-bottom:10px;">Meu Perfil</h2>
-  <p><strong>Nome:</strong> <span id="profileName">Visitante</span></p>
-  <p><strong>Username:</strong> <span id="profileUser">guest</span></p>
-  <p><strong>Email:</strong> <span id="profileEmail">—</span></p>
+        // ---- MAP & PHOTOS -----
+        // Auto‑restore the map when redirected with ?auth=1
+        document.addEventListener('DOMContentLoaded', async ()=>{
+          const params = new URLSearchParams(window.location.search);
+          if(params.has('auth')){
+            showPage('map');
+            await afterAuthAutoSave();
+            history.replaceState({}, '', window.location.origin);
+          }
+        });
+        let map, routeLayer, markersLayer, waypoints = [];
+        let markers = []; // store L.marker references
+let currentThumbIndex = 0;
 
-  <h3 style="margin-top:25px;">Meus Rolês</h3>
-  <div id="profileRoles"></div>
-</div>
+// ===== Supabase (fill your values) =====
+const SUPABASE_URL = 'https://qjanxtpcszdinwxdrmpc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqYW54dHBjc3pkaW53eGRybXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTI2NzUsImV4cCI6MjA3OTE4ODY3NX0.AZUMTReBfk1IR32RCGGZiuR-NpsxzBRkeWItTFCR444';
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-<div id="bottomTabs">
-  <button id="tabFeed"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7"/><path d="M9 22V12h6v10"/></svg></button>
-  <button id="tabMap"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 6l7-3 8 3 7-3v14l-7 3-8-3-7 3z"/></svg></button>
-  <button id="tabProfile"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21c1.5-4 11.5-4 13 0"/></svg></button>
-</div>
+// pending save state: store the last exifArr the user attempted to save
+let pendingSave = null;
 
-<input id="uploadInput" type="file" accept="image/*,video/*" multiple style="display:none;">
+        function renderMap() {
+            if (!map) {
+                map = L.map('map', { center:[-23.5505, -46.6333], zoom:13, gestureHandling: true });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+                markersLayer = L.layerGroup().addTo(map);
+                routeLayer = L.layerGroup().addTo(map);
+            }
+            setTimeout(()=>{ map.invalidateSize(); }, 80);
+        }
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+        // --- FLOATING BUTTON -- 
+        const addPhotosBtn = document.getElementById('add-photos-btn');
+        const photoInput = document.getElementById('photo-upload-input');
 
-<script>
-/* --- Minimal Supabase Setup --- */
-const supabaseClient = supabase.createClient(
-  'https://qjanxtpcszdinwxdrmpc.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqYW54dHBjc3pkaW53eGRybXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTI2NzUsImV4cCI6MjA3OTE4ODY3NX0.AZUMTReBfk1IR32RCGGZiuR-NpsxzBRkeWItTFCR444'
-);
+        addPhotosBtn.onclick = () => { photoInput.click(); };
+        addPhotosBtn.addEventListener('touchend', e=>{
+            e.preventDefault(); photoInput.click();
+        });
 
-let currentProfile = null;
-let waypoints = [];
-let markers = [];
-let currentRoute = null;
+        photoInput.addEventListener('change', async function(e){
+            if (!photoInput.files.length) return;
+            // parse all images/videos
+            let allExif = [];
+            for (const file of photoInput.files) {
+                const isVideo = file.type.startsWith("video/");
+                try {
+                    const exif = await exifr.parse(file, { gps: true, tiff: true });
+                    if (exif && exif.latitude && exif.longitude) {
+                        allExif.push({
+                            file,
+                            lat: exif.latitude,
+                            lng: exif.longitude,
+                            date: exif.DateTimeOriginal || exif.CreateDate || file.lastModified,
+                            name: file.name,
+                            isVideo: isVideo
+                        });
+                    } else {
+                        alert(`A mídia "${file.name}" não possui metadados de localização e será ignorada.`);
+                    }
+                } catch(e) {
+                    alert(`A mídia "${file.name}" não possui metadados de localização e será ignorada.`);
+                }
+            }
+            if (allExif.length < 1) {
+                alert('Nenhuma mídia válida com localização foi encontrada.');
+                return;
+            }
 
-/* --- Auto Profile Creation --- */
-async function ensureProfile() {
-  if (currentProfile) return currentProfile;
+            // sort oldest to newest
+            allExif.sort((a,b)=>{
+                return new Date(a.date) - new Date(b.date);
+            });
+            waypoints = allExif.map(ex=>({lat: ex.lat, lng: ex.lng}));
+            plotWaypointsAndRoute(allExif);
+        });
 
-  const { data } = await supabaseClient
-    .from("profiles")
-    .insert({
-      name: "Visitante",
-      username: "guest_" + Date.now(),
-      email: null
-    })
-    .select()
-    .single();
+        async function plotWaypointsAndRoute(exifArr) {
+            document.getElementById('thumb-carousel').style.display = 'none';
+            setSaveButtonVisible(false);
+            if (!map) renderMap();
+            routeLayer.clearLayers();
+            markersLayer.clearLayers();
+            // clear old markers and revoke object urls
+            markers.forEach(m=>{ if(m._thumbUrl){ URL.revokeObjectURL(m._thumbUrl); } });
+            markers = [];
+            // Place markers and collect marker objects
+            exifArr.forEach((ex, idx)=>{
+                const isStart = idx === 0;
+                const isEnd = idx === exifArr.length - 1;
+                const icon = isStart
+                    ? L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [36,36], className: 'start-marker' })
+                    : isEnd
+                        ? L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [36,36], className: 'end-marker' })
+                        : undefined;
+                const marker = L.marker([ex.lat, ex.lng], icon ? {icon} : undefined)
+                               .bindPopup(`${isStart ? 'Início' : isEnd ? 'Fim' : 'Waypoint'}<br>${ex.name}`);
+                marker.addTo(markersLayer);
+                marker._exif = ex; // attach original file/meta
+                markers.push(marker);
 
-  currentProfile = data;
-  return data;
+                // when marker clicked open the corresponding thumbnail (centered)
+                marker.on('click', ()=>{
+                    const i = markers.indexOf(marker);
+                    if(i>=0) openThumbnailAt(i);
+                });
+            });
+
+            // If only one media, skip OSRM routing entirely
+            if (exifArr.length === 1) {
+                // Center map on the single marker
+                const single = exifArr[0];
+                if (markers[0]) {
+                    map.setView([single.lat, single.lng], 16);
+                    markers[0].openPopup();
+                }
+                // Render thumbnails normally
+                renderThumbnails(exifArr);
+                currentThumbIndex = 0;
+                openThumbnailAt(0);
+                return; // do NOT try to build a route
+            }
+            // Build OSRM Route request (same as before)
+            const coordsStr = exifArr.map(ex=>`${ex.lng},${ex.lat}`).join(';');
+            const url = `https://router.project-osrm.org/route/v1/foot/${coordsStr}?overview=full&geometries=geojson`;
+            try {
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (data.code === 'Ok' && data.routes.length) {
+                    const route = data.routes[0].geometry;
+                    const poly = L.geoJSON(route, {color: '#0099ff', weight:5, opacity:0.75}).addTo(routeLayer);
+                    map.fitBounds(poly.getBounds(), { padding: [60,60] });
+                } else {
+                    alert('Não foi possível traçar a rota.');
+                }
+            } catch(e) {
+                alert('Erro ao conectar ao serviço de rotas: ' + e.message);
+            }
+
+            // Render thumbnails and enable navigation
+            renderThumbnails(exifArr);
+            // open first thumbnail by default (center popup)
+            currentThumbIndex = 0;
+            openThumbnailAt(0);
+        }
+
+        // Render thumbnails into the carousel and wire click handlers
+        function renderThumbnails(exifArr){
+            document.getElementById('thumb-carousel').style.display = 'flex';
+            setSaveButtonVisible(true);
+            const thumbs = document.getElementById('thumbs');
+            thumbs.innerHTML = '';
+            exifArr.forEach((ex, idx)=>{
+                const url = URL.createObjectURL(ex.file);
+                const el = document.createElement('div');
+                el.className = 'thumb';
+                el.dataset.index = idx;
+                el.innerHTML = `<img src="${url}" alt="thumb-${idx}" /><div class="index-badge">${idx+1}</div>`;
+                el.addEventListener('click', ()=>{ openThumbnailAt(idx); });
+                thumbs.appendChild(el);
+                // store thumb url on marker so we can revoke later
+                if(markers[idx]) markers[idx]._thumbUrl = url;
+            });
+
+            // wire prev/next buttons
+            const prev = document.getElementById('thumb-prev');
+            const next = document.getElementById('thumb-next');
+            prev.onclick = ()=>{ navigateThumb(-1); };
+            next.onclick = ()=>{ navigateThumb(1); };
+
+            // make sure carousel is scrollable to active
+            setTimeout(()=>{ scrollThumbIntoView(currentThumbIndex); }, 60);
+        }
+
+// --- Thumbnail drag reorder support ---
+let editingRoute = false;
+
+function enableThumbnailReorder(){
+  const thumbs = document.getElementById('thumbs').children;
+  [...thumbs].forEach(el=>{
+    el.setAttribute('draggable','true');
+    el.ondragstart = ev=>{ ev.dataTransfer.setData('idx', el.dataset.index); };
+    el.ondragover = ev=> ev.preventDefault();
+    el.ondrop = ev=>{
+      ev.preventDefault();
+      const from = Number(ev.dataTransfer.getData('idx'));
+      const to = Number(el.dataset.index);
+      if(from===to) return;
+      const parent = document.getElementById('thumbs');
+      const nodes = [...parent.children];
+      const moved = nodes[from];
+      parent.removeChild(moved);
+      parent.insertBefore(moved, nodes[to]);
+      const newOrder = [...parent.children].map(n=> markers[Number(n.dataset.index)]._exif);
+      markers = markers.sort((a,b)=> newOrder.indexOf(a._exif) - newOrder.indexOf(b._exif));
+    };
+  });
 }
 
-/* --- MAP --- */
-const map = L.map('map', {
-  zoomControl: true,
-  attributionControl: false,
-  tap: false,
-  inertia: true,
-  inertiaDeceleration: 3000
-}).setView([-27.5954, -48.5480], 13);
+function disableThumbnailReorder(){
+  const thumbs = document.getElementById('thumbs').children;
+  [...thumbs].forEach(el=>{
+    el.removeAttribute('draggable');
+    el.ondragstart = null;
+    el.ondragover = null;
+    el.ondrop = null;
+  });
+}
 
-L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png').addTo(map);
+        function navigateThumb(delta){
+            if(!markers.length) return;
+            currentThumbIndex = (currentThumbIndex + delta + markers.length) % markers.length; // loop
+            openThumbnailAt(currentThumbIndex);
+        }
 
-/* PANELS */
-const feedPanel = document.getElementById("feedPanel");
-const profilePanel = document.getElementById("profilePanel");
-const mapPanel = document.getElementById("mapPanel");
+        function openThumbnailAt(idx){
+            if(idx < 0 || idx >= markers.length) return;
+            currentThumbIndex = idx;
+            // highlight thumb
+            const thumbs = document.querySelectorAll('.thumb');
+            thumbs.forEach(t=> t.classList.toggle('active', Number(t.dataset.index)===idx));
+            // scroll into view center
+            scrollThumbIntoView(idx);
+            // center map so popup shows centered on screen
+            const marker = markers[idx];
+            if(marker){
+                const latlng = marker.getLatLng();
+                // compute container center and move marker there so popup is centered
+                const mapSize = map.getSize();
+                const containerCenter = L.point(mapSize.x/2, mapSize.y/2 - 40); // slight upward offset
+                const markerPoint = map.latLngToContainerPoint(latlng);
+                const delta = markerPoint.subtract(containerCenter);
+                const targetPoint = map.containerPointToLatLng(markerPoint.subtract(delta));
+                map.panTo(targetPoint, {animate:true});
+                marker.openPopup();
+            }
+        }
 
-/* NAVIGATION */
-document.getElementById("tabMap").onclick = () => {
-  mapPanel.classList.add("active");
-  feedPanel.classList.remove("active");
-  profilePanel.classList.remove("active");
-  document.getElementById("floatingCameraBtn").style.display = "flex";
-};
-document.getElementById("tabFeed").onclick = () => {
-  feedPanel.classList.add("active");
-  mapPanel.classList.remove("active");
-  profilePanel.classList.remove("active");
-  document.getElementById("floatingCameraBtn").style.display = "none";
-  renderFeed();
-};
-document.getElementById("tabProfile").onclick = () => {
-  profilePanel.classList.add("active");
-  feedPanel.classList.remove("active");
-  mapPanel.classList.remove("active");
-  document.getElementById("floatingCameraBtn").style.display = "none";
-  renderProfile();
-};
+        function scrollThumbIntoView(idx){
+            const el = document.querySelector(`.thumb[data-index="${idx}"]`);
+            if(el){
+                el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+            }
+        }
+// ===== AUTH & SAVE HELPERS =====
+// Show or hide the Save button (show when thumbnails exist)
+function setSaveButtonVisible(visible){
+    const container = document.getElementById('save-rolê-container');
+    container.style.display = visible ? 'flex' : 'none';
+}
 
-document.getElementById("floatingCameraBtn").onclick = () => {
-  const input = document.getElementById("uploadInput");
-  if (input) input.click();
-};
+// Check for logged-in user
+async function getCurrentUser(){
+    const { data, error } = await supa.auth.getUser();
+    if(error) return null;
+    return data?.user || null;
+}
 
-/* UPLOADER */
-// UPLOAD HANDLER (EXIF extraction + preview, no auto-save)
-document.getElementById("uploadInput").addEventListener("change", async (e) => {
-  const files = Array.from(e.target.files);
-  if (!files.length) return;
+// Show a simple modal to login/signup (we'll add markup later)
+function showAuthModal(){
+    const m = document.getElementById('auth-modal');
+    if(m) m.style.display = 'flex';
+}
+function hideAuthModal(){
+    const m = document.getElementById('auth-modal');
+    if(m) m.style.display = 'none';
+}
 
-  // Loading UI while processing
-  const loadingDiv = document.createElement('div');
-  loadingDiv.innerHTML = '<div class="spinner"></div><p style="text-align:center; margin-top:10px;">Processando mídias...</p>';
-  loadingDiv.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:99998; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;';
-  document.body.appendChild(loadingDiv);
+// signup with email + password (simple flow)
+async function handleSignup(email, password){
+    let redirectBase = window.location.origin;
+    if (redirectBase.startsWith("file")) {
+        redirectBase = "https://brunnowski.github.io/rolezinho-app";
+    }
+    const { data, error } = await supa.auth.signUp({
+        email,
+        password,
+        options: {
+            emailRedirectTo: redirectBase + '?auth=1'
+        }
+    });
+    return { data, error };
+}
 
-  waypoints = [];
-  clearMap();
+async function handleSignin(email, password){
+    const { data, error } = await supa.auth.signInWithPassword({ email, password });
+    return { data, error };
+}
 
-  for (let file of files) {
-    // Skip long videos (keep short clips only)
-    if (file.type.startsWith('video')) {
-      try {
-        const duration = await getVideoDuration(file);
-        if (duration > 4) continue;
-      } catch (e) {
-        console.warn('Não foi possível ler duração do vídeo, ignorando se muito grande', e);
-      }
+// Save route + images to Supabase Storage and insert a record into 'routes' table
+async function saveRouteToSupabase(exifArr){
+    const user = await getCurrentUser();
+    if(!user) {
+        // trigger auth flow and set pending
+        pendingSave = exifArr;
+        showAuthModal();
+        return;
     }
 
-    const exif = await window.exifr.gps(file).catch(() => null);
-    if (exif?.latitude && exif?.longitude) {
-      const base64 = await fileToBase64(file);
-      const ts = exif?.DateTimeOriginal || new Date(file.lastModified);
+    const routeId = 'route_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    // build points payload
+    const points = exifArr.map((ex, i)=>({ lat: ex.lat, lng: ex.lng, order: i }));
 
-      waypoints.push({
-        lat: exif.latitude,
-        lon: exif.longitude,
-        name: file.name,
-        thumbnail: base64,
-        isVideo: file.type.startsWith('video'),
-        ts
-      });
+    // Upload each photo to Supabase Storage
+    const uploadedPhotos = [];
+    for (let i=0;i<exifArr.length;i++){
+        const file = exifArr[i].file;
+        const filename = `${i}_${file.name}`;
+        const path = `roles/${user.id}/${routeId}/${filename}`;
+        try {
+            const { data: uploadData, error: uploadError } = await supa.storage.from('roles').upload(path, file, { upsert: true });
+            if(uploadError){
+                console.error('Upload error', uploadError);
+                continue;
+            }
+            const { data: publicUrlData } = supa.storage.from('roles').getPublicUrl(path);
+            uploadedPhotos.push({ url: publicUrlData.publicUrl, order: i, filename });
+        } catch(err){
+            console.error('Upload exception', err);
+        }
     }
-  }
 
-  // Sort temporally
-  waypoints.sort((a, b) => new Date(a.ts) - new Date(b.ts));
+    // Insert route record
+    try{
+        const { data: insertData, error: insertError } = await supa.from('routes').insert([{
+            user_id: user.id,
+            route_id: routeId,
+            points: points,
+            photos: uploadedPhotos,
+            created_at: new Date().toISOString()
+        }]);
+        if(insertError){
+            console.error('Insert error', insertError);
+            alert('Erro ao salvar a rota. Veja o console para detalhes.');
+            return;
+        }
+        alert('Rolê salvo com sucesso!');
+        // hide Save UI
+        setSaveButtonVisible(false);
+    } catch(e){
+        console.error(e);
+        alert('Erro inesperado ao salvar.');
+    }
+}
 
-  // Render on map (preview)
-  renderWaypoints();
-
-  document.body.removeChild(loadingDiv);
-
-  // Show floating save button
-  showSaveButton();
-
-  // reset input
-  e.target.value = '';
+// After successful login/signup, if pendingSave exists, auto-save
+async function afterAuthAutoSave(){
+    const user = await getCurrentUser();
+    if(user && pendingSave){
+        const exifArr = pendingSave;
+        pendingSave = null;
+        hideAuthModal();
+        await saveRouteToSupabase(exifArr);
+    }
+}
+// Save button handler
+document.getElementById('save-route-btn').addEventListener('click', async ()=>{
+    // collect the exif objects from markers (they are stored in markers[]. _exif)
+    const exifArr = markers.map(m=>m._exif).filter(Boolean);
+    if(!exifArr.length){ alert('Nenhuma rota disponível'); return; }
+    const user = await getCurrentUser();
+    if(user){ showPage('map'); await saveRouteToSupabase(exifArr); return; }
+    await saveRouteToSupabase(exifArr);
 });
 
-/* FEED RENDER */
-async function renderFeed() {
-  ensureProfile();
-  feedPanel.classList.add("active");
+// EDIT ROUTE BUTTON HANDLER
+const editBtn = document.getElementById('edit-route-btn');
+editBtn.addEventListener('click', ()=>{
+  editingRoute = !editingRoute;
+  if(editingRoute){
+    enableThumbnailReorder();
+    editBtn.style.background = '#ffe28a';
+  } else {
+    disableThumbnailReorder();
+    editBtn.style.background = '#ffffff';
+  }
+});
 
-  const { data: roles } = await supabaseClient
-    .from("roles")
-    .select("id, titulo, created_at")
-    .order("created_at", { ascending: false });
-
-  const list = document.getElementById("feedList");
-  list.innerHTML = roles.map(r => `
-    <div class="role-card">
-      <h3>${r.titulo}</h3>
-      <p>${new Date(r.created_at).toLocaleString()}</p>
-      <button onclick="openRole('${r.id}')">Abrir</button>
-    </div>
-  `).join("");
-}
-
-/* PROFILE RENDER */
-async function renderProfile() {
-  const profile = await ensureProfile();
-profilePanel.classList.add("active");
-
-document.getElementById("profileName").textContent = profile.name || 'Visitante';
-document.getElementById("profileUser").textContent = profile.username || 'guest';
-document.getElementById("profileEmail").textContent = profile.email || '—';
-
-  const { data: roles } = await supabaseClient
-    .from("roles")
-    .select("id, titulo, created_at")
-    .eq("profile_id", currentProfile.id)
-    .order("created_at", { ascending: false });
-
-  document.getElementById("profileRoles").innerHTML = roles.map(r => `
-    <div class="role-card">
-      <h3>${r.titulo}</h3>
-      <button onclick="openRole('${r.id}')">Abrir</button>
-      <button onclick="shareRole('${r.id}')">Compartilhar</button>
-    </div>
-  `).join("");
-}
-
-/* HELPERS */
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
-}
-
-async function compressImage(base64, maxWidth = 480) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = maxWidth / img.width;
-      canvas.width = maxWidth;
-      canvas.height = Math.max(1, Math.round(img.height * scale));
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
-    };
-    img.onerror = () => resolve(base64);
-    img.src = base64;
-  });
-}
-
-async function getVideoDuration(file) {
-  return new Promise(resolve => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(video.src);
-      resolve(video.duration);
-    };
-    video.onerror = () => resolve(0);
-    video.src = URL.createObjectURL(file);
-  });
-}
-
-window.openRole = async id => {
-  location.href = location.pathname + "?role=" + id;
-};
-
-window.shareRole = id => {
-  navigator.clipboard.writeText(location.origin + location.pathname + "?role=" + id);
-  alert("Link copiado!");
-};
-
-function showSaveButton() {
-  if (document.getElementById('saveRouteFloating')) return;
-  const btn = document.createElement('button');
-  btn.id = 'saveRouteFloating';
-  btn.textContent = '';
-  const icon = document.createElement('svg');
-  icon.setAttribute('width', '20');
-  icon.setAttribute('height', '20');
-  icon.setAttribute('viewBox', '0 0 24 24');
-  icon.setAttribute('fill', 'none');
-  icon.setAttribute('stroke', 'white');
-  icon.setAttribute('stroke-width', '2');
-
-  const path1 = document.createElement('path');
-  path1.setAttribute('d', 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z');
-  const poly1 = document.createElement('polyline');
-  poly1.setAttribute('points', '17 21 17 13 7 13 7 21');
-  const poly2 = document.createElement('polyline');
-  poly2.setAttribute('points', '7 3 7 8 15 8');
-
-  icon.appendChild(path1);
-  icon.appendChild(poly1);
-  icon.appendChild(poly2);
-
-  btn.appendChild(icon);
-  const textNode = document.createTextNode(' Salvar Rolê');
-  btn.appendChild(textNode);
-  btn.style.cssText = 'position:fixed; bottom:120px; left:50%; transform:translateX(-50%); z-index:10003; padding:12px 18px; border-radius:999px; background:#0066ff; color:white; border:none; font-weight:600;';
-  btn.addEventListener('click', () => {
-    // open title modal
-    const suggested = 'Meu Rolê ' + new Date().toLocaleDateString();
-    window.pendingWaypoints = waypoints.slice();
-    window.openRouteTitleModal(suggested);
-  });
-  document.body.appendChild(btn);
-}
-function hideSaveButton() { const b = document.getElementById('saveRouteFloating'); if (b) b.remove(); }
-
-async function savePendingRoute() {
-  try {
-    if (!window.pendingWaypoints || !window.pendingRouteTitle) return;
-    const profile = window.currentProfile || await ensureProfile();
-    const titulo = window.pendingRouteTitle;
-
-    showLoadingOverlay('Salvando rolê...');
-
-    const role = await createRoleOnSupabase({ titulo, creator_name: profile.name || profile.username || 'Visitante', creator_photo: profile.photo_url || null, profile_id: profile.id });
-    const roleId = role.id;
-
-    const waypointsPrepared = [];
-    for (let wp of window.pendingWaypoints) {
-      let thumbURL = null;
-      if (!wp.isVideo) {
-        const compressed = await compressImage(wp.thumbnail, 600);
-        thumbURL = await uploadThumbnailToSupabase(compressed, roleId, wp.name);
-      }
-      waypointsPrepared.push({ lat: wp.lat, lon: wp.lon, name: wp.name, thumbnail_url: thumbURL, is_video: !!wp.isVideo, ts: wp.ts });
+// Auth modal controls (signup / login)
+// EVENT DELEGATION for dynamic modal buttons
+document.getElementById('auth-modal').addEventListener('click', async (ev)=>{
+    const el = ev.target;
+    // Close modal when clicking outside modal-inner
+    if (el.id === 'auth-modal') {
+        hideAuthModal();
+        return;
     }
 
-    await insertWaypointsBulk(roleId, waypointsPrepared);
+    // LOGIN
+    if(el.id === 'auth-login-btn'){
+        const email = document.getElementById('auth-email')?.value;
+        const pass = document.getElementById('auth-pass')?.value;
+        if(!email || !pass){ alert('Preencha email e senha'); return; }
+        const { error } = await handleSignin(email, pass);
+        if(error){ alert('Erro no login: ' + error.message); return; }
+        showPage('map');
+        if(!pendingSave){ openThumbnailAt(0); }
+        await afterAuthAutoSave();
+    }
 
-    hideLoadingOverlay();
-    showToast('Rolê salvo com sucesso!');
-    window.lastSavedRoleId = roleId;
-    hideSaveButton();
-    renderFeed();
+    // SIGNUP
+    if(el.id === 'auth-signup-btn'){
+        const email = document.getElementById('auth-email')?.value;
+        const pass = document.getElementById('auth-pass')?.value;
+        if(!email || !pass){ alert('Preencha email e senha'); return; }
+        const { error } = await handleSignup(email, pass);
+        if(error){ alert('Erro no cadastro: ' + error.message); return; }
 
-    // cleanup
-    window.pendingWaypoints = null;
-    window.pendingRouteTitle = null;
-  } catch (err) {
-    console.error('Erro ao salvar rolê:', err);
-    hideLoadingOverlay();
-    showToast('Erro ao salvar o rolê');
-  }
-}
-function showLoadingOverlay(message = 'Carregando...') {
-  if (document.getElementById('rx-loading-overlay')) return;
+        const inner = document.querySelector('#auth-modal .modal-inner');
+        inner.innerHTML = `
+            <h3 style="margin-top:0">Conta criada!</h3>
+            <p style="font-size:15px;color:#444;margin-top:10px">
+                Verifique seu email para confirmar sua conta e continuar salvando seu rolê.
+            </p>
+            <button id="open-email-app" style="width:100%; padding:12px; margin-top:18px; border:none; border-radius:8px; background:#1e88e5; color:#fff; font-size:16px;">
+                Abrir app de email
+            </button>
+            <p style="font-size:14px;color:#555;margin-top:16px">
+                Após confirmar, você retornará automaticamente à sua última rota.
+            </p>
+        `;
 
-  const overlay = document.createElement('div');
-  overlay.id = 'rx-loading-overlay';
-  overlay.style.cssText = `
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,0.6); z-index:100000; color:white; padding:20px; backdrop-filter:blur(6px);
-  `;
-  overlay.innerHTML = `
-    <div style="text-align:center; max-width:320px; width:100%;">
-      <div class="spinner" style="margin:0 auto 12px;"></div>
-      <div style="font-size:16px; opacity:0.95;">${message}</div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
+        setTimeout(()=>{
+            const openBtn = document.getElementById('open-email-app');
+            if(openBtn) openBtn.onclick = ()=>{
+                let tried = false;
 
-function hideLoadingOverlay() {
-  const el = document.getElementById('rx-loading-overlay');
-  if (el) el.remove();
-}
-/* Clear map markers and route */
-function clearMap() {
-  // Remove markers and current route cleanly
-  // Remove all marker layers
-  if (markers && markers.length) {
-    markers.forEach(m => { if (m && map.hasLayer(m)) map.removeLayer(m); });
-  }
-  markers = [];
+                // iOS Mail inbox (best for iPhone)
+                tried = true;
+                window.location.href = 'message://';
 
-  // Remove polyline route
-  if (currentRoute && map.hasLayer(currentRoute)) {
-    map.removeLayer(currentRoute);
-    currentRoute = null;
-  }
-}
+                // Gmail (Android) – tries to open inbox instead of compose
+                setTimeout(()=>{
+                    if(tried){
+                        window.location.href = 'googlegmail:///';
+                    }
+                }, 350);
 
-/* Render waypoints with markers and route */
-function renderWaypoints() {
-  // Render markers, popups, and request OSRM for route; auto-fit bounds
-  clearMap();
-  const bounds = [];
+                // Outlook (Android/iOS)
+                setTimeout(()=>{
+                    if(tried){
+                        window.location.href = 'ms-outlook://';
+                    }
+                }, 700);
 
-  waypoints.forEach((wp, i) => {
-    const marker = L.marker([wp.lat, wp.lon]).addTo(map);
-    markers.push(marker);
+                // Fallback to 'mailto:' (opens app picker)
+                setTimeout(()=>{
+                    window.location.href = 'mailto:';
+                }, 1100);
+            };
+        },50);
+    }
+});
 
-    const mediaHTML = wp.isVideo
-      ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline preload="metadata"></video>`
-      : `<img src="${wp.thumbnail}" class="thumbnail" loading="lazy">`;
+// listen for auth state changes (for example email confirmation flow)
+supa.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN'){
+        // if this was a verification redirect, restore route
+        if(pendingSave){ openThumbnailAt(0); }
+        showPage('map');
+        afterAuthAutoSave();
+    }
+});
 
-    marker.bindPopup(`
-      <div style="text-align:center; min-width:200px;">
-        <b>${wp.name}</b><br>
-        ${mediaHTML}<br>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:10px;">
-          <button onclick="window.focusMarker(${i - 1})" style="flex:1;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-          </button>
-          <button onclick="window.focusMarker(${i + 1})" style="flex:1;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-    `);
-
-    marker.on('popupopen', (e) => {
-      setTimeout(() => {
-        const popup = e.popup._container;
-        if (!popup) return;
-        const h = popup.offsetHeight;
-        map.panBy([0, -h / 3], { animate: true, duration: 0.3 });
-      }, 60);
-    });
-
-    marker.on('click', () => {
-      map.setView(marker.getLatLng(), 15, { animate: true });
-      marker.openPopup();
-    });
-
-    bounds.push([wp.lat, wp.lon]);
-  });
-
-  if (bounds.length > 0) {
-    map.once('moveend', () => {
-      if (waypoints.length > 1) {
-        const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
-        fetch(`https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`)
-          .then(r => r.json())
-          .then(data => {
-            if (!data || data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-              console.warn('OSRM: rota indisponível', data);
-              return;
-            }
-            const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            if (currentRoute && map.hasLayer(currentRoute)) map.removeLayer(currentRoute);
-            currentRoute = L.polyline(routeCoords, { color: '#0066ff', weight: 4, opacity: 0.9 }).addTo(map);
-          })
-          .catch(err => console.error('Erro ao carregar rota OSRM:', err));
-      }
-    });
-
-    map.flyToBounds(bounds, {
-      paddingTopLeft: [0, 80],
-      paddingBottomRight: [0, 110],
-      maxZoom: 15,
-      animate: true,
-      duration: 0.91,
-      easeLinearity: 0.2
-    });
-  }
-
-  // auto-open popup when only one marker
-  if (markers.length === 1) {
-    setTimeout(() => {
-      markers[0].openPopup();
-      map.setView(markers[0].getLatLng(), 16, { animate: true });
-    }, 200);
-  }
-}
-</script>
-
-  <!-- ROUTE TITLE MODAL -->
-  <div id="routeTitleModal" class="panel" style="display:none; z-index:20000;">
-    <h2>Nome do Rolê</h2>
-    <p>Escolha um título para sua rota.</p>
-    <input id="routeTitleInput" type="text" placeholder="Meu Rolê" style="padding:12px; border-radius:8px; border:none; margin-bottom:20px; width:100%;">
-    <button id="confirmRouteTitle" style="padding:12px; border-radius:8px; width:100%; margin-bottom:10px;">Continuar</button>
-    <button id="cancelRouteTitle" class="btn-secondary" style="padding:12px; border-radius:8px; width:100%;">Cancelar</button>
-  </div>
-
-  <!-- ACCOUNT CREATION MODAL -->
-  <div id="createAccountModal" class="panel" style="display:none; z-index:20001;">
-    <h2>Criar Conta</h2>
-    <input id="caUsername" type="text" placeholder="Username" style="padding:12px; border-radius:8px; border:none; margin-bottom:12px; width:100%;">
-    <input id="caEmail" type="email" placeholder="Email" style="padding:12px; border-radius:8px; border:none; margin-bottom:12px; width:100%;">
-    <input id="caPassword" type="password" placeholder="Senha" style="padding:12px; border-radius:8px; border:none; margin-bottom:20px; width:100%;">
-    <button id="createAccountBtnFinal" style="padding:12px; border-radius:8px; width:100%; margin-bottom:10px;">Criar Conta</button>
-    <button id="cancelCreateAccount" class="btn-secondary" style="padding:12px; border-radius:8px; width:100%;">Cancelar</button>
-  </div>
-
-<script>
-// Show route title modal after user taps Save (trigger: role creation process)
-window.openRouteTitleModal = function(suggestedTitle) {
-  document.getElementById("routeTitleInput").value = suggestedTitle || "";
-  document.getElementById("routeTitleModal").style.display = "flex";
-};
-
-document.getElementById("cancelRouteTitle").onclick = () => {
-  document.getElementById("routeTitleModal").style.display = "none";
-};
-
-document.getElementById("confirmRouteTitle").onclick = () => {
-  const title = document.getElementById("routeTitleInput").value.trim();
-  if (!title) return alert("Escolha um título.");
-  document.getElementById("routeTitleModal").style.display = "none";
-  document.getElementById("createAccountModal").style.display = "flex";
-  window.pendingRouteTitle = title;
-};
-
-// ACCOUNT CREATION
-document.getElementById("cancelCreateAccount").onclick = () => {
-  document.getElementById("createAccountModal").style.display = "none";
-};
-
-document.getElementById("createAccountBtnFinal").onclick = async () => {
-  const username = document.getElementById("caUsername").value.trim();
-  const email = document.getElementById("caEmail").value.trim();
-  const password = document.getElementById("caPassword").value.trim();
-
-  if (!username || !email || !password) { 
-    alert("Preencha todos os campos."); 
-    return; 
-  }
-
-  // STEP 1 — Create user in Supabase Auth
-  const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-    email,
-    password
-  });
-
-  if (signUpError) {
-    alert("Erro ao criar conta.");
-    console.error(signUpError);
-    return;
-  }
-
-  const authId = signUpData.user?.id;
-
-  // Do NOT manually insert into profiles — trigger will handle it
-  window.currentProfile = {
-    auth_uid: authId,
-    username,
-    email,
-    name: username
-  };
-
-  // Close modal
-  document.getElementById('createAccountModal').style.display = 'none';
-  alert('Conta criada! Salvando seu rolê...');
-
-  // STEP 2 — Continue saving the pending route
-  await savePendingRoute();
-};
-</script>
+// Show MAP by default on mobile PWAs if desired
+        // showPage('map'); // Uncomment if you want to start at map
+    </script>
 </body>
 </html>
