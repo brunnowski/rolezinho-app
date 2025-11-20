@@ -588,6 +588,36 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
         window.currentProfile = existing;
       }
 
+      // PATCH PÓS-LOGIN — garantir retorno ao app após link mágico
+      try {
+        // fechar modal de auth se aberto
+        const authModal = document.getElementById("authModal");
+        if (authModal) authModal.style.display = "none";
+
+        // fechar telas de onboarding se estiverem abertas
+        document.getElementById("onboarding")?.classList.remove("active");
+        document.getElementById("onboarding2")?.classList.remove("active");
+        document.getElementById("onboarding3")?.classList.remove("active");
+
+        // marcar onboarding completo (evita cair no fluxo antigo)
+        localStorage.setItem("onboardingDone", "1");
+
+        // carregar rolê compartilhado automaticamente, se existir
+        if (typeof autoloadSharedRole === "function") {
+          autoloadSharedRole();
+        }
+      } catch (e) {
+        console.error("Erro no patch pós-login:", e);
+      }
+
+      // REDIRECT PÓS-LOGIN (Opção A) — sempre voltar ao mapa raiz
+      try {
+        const base = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, "", base);
+      } catch (e) {
+        console.error("Erro no redirect pós-login:", e);
+      }
+
       if (window.currentProfile) {
         localStorage.setItem('profileId', window.currentProfile.id);
         localStorage.setItem('profileName', window.currentProfile.name || '');
@@ -733,11 +763,36 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   const ob2 = document.getElementById("onboarding2");
   const ob3 = document.getElementById("onboarding3");
 
-  if (!localStorage.getItem("onboardingDone")) {
-    ob1.classList.add("active");
-  } else {
-    autoloadSharedRole();
-  }
+  // NOVO FLUXO DE LOGIN E ONBOARDING
+  supabaseClient.auth.getSession().then(async ({ data }) => {
+    const session = data?.session;
+
+    if (session && session.user) {
+      try {
+        const { data: profile } = await supabaseClient
+          .from("profiles")
+          .select("*")
+          .eq("auth_uid", session.user.id)
+          .single();
+
+        if (profile) {
+          window.currentProfile = profile;
+          localStorage.setItem("onboardingDone", "1");
+          autoloadSharedRole();
+          return;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar perfil existente:", err);
+      }
+    }
+
+    // Usuário não logado ou sem perfil → seguir fluxo normal
+    if (!localStorage.getItem("onboardingDone")) {
+      ob1.classList.add("active");
+    } else {
+      autoloadSharedRole();
+    }
+  });
 
   document.getElementById("obNext1").addEventListener("click", () => {
     ob1.classList.remove("active");
