@@ -365,6 +365,22 @@
   </div>
 </div>
 
+<!-- Auth Modal -->
+<div id="authModal" class="modal-fullscreen" style="display:none;">
+  <div class="modal-content">
+    <h2>Entrar / Criar conta</h2>
+    <p>Digite seu e-mail para receber um link de acesso (magic link)</p>
+    <input id="authEmail" type="email" placeholder="seu@exemplo.com" />
+    <button id="authSendEmail">Enviar link por email</button>
+    <hr style="width:100%; opacity:0.1; margin:18px 0;">
+    <p>Ou entre com</p>
+    <div style="display:flex; gap:8px; width:100%;">
+      <button id="authGoogle" class="btn-secondary" style="flex:1;">Google</button>
+      <button id="authApple" class="btn-secondary" style="flex:1;">Apple</button>
+    </div>
+    <button id="closeAuth" style="margin-top:18px; background:transparent; border:none; color:white;">Cancelar</button>
+  </div>
+</div>
 <!-- Profile Modal -->
 <div id="profileModal">
   <button id="closeProfile" style="position: absolute; top: 20px; right: 20px; z-index: 10;">✕</button>
@@ -429,16 +445,264 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script>
 // Aguardar carregar todos os scripts
+// --- Supabase Client (Patch 1) ---
+const SUPABASE_URL = 'https://qjanxtpcszdinwxdrmpc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqYW54dHBjc3pkaW53eGRybXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MTI2NzUsImV4cCI6MjA3OTE4ODY3NX0.AZUMTReBfk1IR32RCGGZiuR-NpsxzBRkeWItTFCR444';
+
+// Criar o cliente Supabase e expor globalmente como `supabaseClient`
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabaseClient = supabaseClient;
+
+/**
+ * uploadThumbnailToSupabase(base64, roleId, filename)
+ * - base64: dataURL (ex: 'data:image/jpeg;base64,...')
+ * - roleId: uuid da role
+ * - filename: nome original do arquivo (usado para gerar o path)
+ *
+ * Retorna: publicUrl (string) ou lança erro.
+ */
+async function uploadThumbnailToSupabase(base64, roleId, filename) {
+  try {
+    const blob = await (await fetch(base64)).blob();
+    const ext = (blob.type && blob.type.split('/')[1]) || 'jpg';
+    const safeName = encodeURIComponent(filename.replace(/\s+/g, '_'));
+    const path = `${roleId}/${safeName}.${ext}`;
+
+    const { error: uploadError } = await supabaseClient.storage
+      .from('thumbnails')
+      .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabaseClient.storage.from('thumbnails').getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (err) {
+    console.error('Erro uploadThumbnailToSupabase:', err);
+    throw err;
+  }
+}
+
+/**
+ * createRoleOnSupabase({ titulo, creator_name, creator_photo, profile_id })
+ * - Insere uma linha na tabela roles e retorna o objeto inserido.
+ */
+async function createRoleOnSupabase({ titulo, creator_name, creator_photo, profile_id }) {
+  const payload = { titulo, creator_name, creator_photo };
+  if (profile_id) payload.profile_id = profile_id;
+
+  const { data, error } = await supabaseClient
+    .from('roles')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * insertWaypointsBulk(roleId, waypointsArray)
+ * - waypointsArray: [{ lat, lon, name, thumbnail_url, is_video, ts }]
+ * - Insere todos os waypoints para role_id e retorna os registros inseridos.
+ */
+async function insertWaypointsBulk(roleId, waypointsArray) {
+  const payload = waypointsArray.map(w => ({
+    role_id: roleId,
+    lat: w.lat,
+    lon: w.lon,
+    name: w.name,
+    thumbnail_url: w.thumbnail_url || null,
+    is_video: w.is_video || false,
+    ts: w.ts || null
+  }));
+
+  const { data, error } = await supabaseClient
+    .from('waypoints')
+    .insert(payload);
+
+  if (error) throw error;
+  return data;
+}
+// --- fim Supabase Client ---
+
+/* --- Supabase Auth helpers (Auth Patch) --- */
+
+function openAuthModal() {
+  document.getElementById('authModal').style.display = 'flex';
+}
+function closeAuthModal() {
+  document.getElementById('authModal').style.display = 'none';
+}
+
+document.getElementById('authSendEmail').addEventListener('click', async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) { showToast('Digite um email válido'); return; }
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  if (error) { showToast('Erro ao enviar link'); }
+  else { showToast('Link enviado — verifique seu email'); closeAuthModal(); }
+});
+
+document.getElementById('authGoogle').addEventListener('click', async () => {
+  await supabaseClient.auth.signInWithOAuth({ provider: 'google' });
+});
+document.getElementById('authApple').addEventListener('click', async () => {
+  await supabaseClient.auth.signInWithOAuth({ provider: 'apple' });
+});
+document.getElementById('closeAuth').addEventListener('click', closeAuthModal);
+
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+  const user = session?.user || null;
+  if (user) {
+    try {
+      const { data: existing } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('auth_uid', user.id)
+        .limit(1)
+        .single();
+
+      if (!existing) {
+        const email = user.email || null;
+        const name = (user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || localStorage.getItem('profileName') || null;
+        const insertPayload = {
+          auth_uid: user.id,
+          name,
+          email,
+          photo_url: localStorage.getItem('profilePhoto') || null
+        };
+        const { data: newProfile } = await supabaseClient
+          .from('profiles')
+          .insert(insertPayload)
+          .select()
+          .single();
+        window.currentProfile = newProfile;
+      } else {
+        window.currentProfile = existing;
+      }
+
+      if (window.currentProfile) {
+        localStorage.setItem('profileId', window.currentProfile.id);
+        localStorage.setItem('profileName', window.currentProfile.name || '');
+        localStorage.setItem('profileEmail', window.currentProfile.email || '');
+        localStorage.setItem('profilePhoto', window.currentProfile.photo_url || '');
+      }
+      showToast('Bem-vindo ' + (window.currentProfile?.name || ''));
+    } catch (err) { console.error(err); }
+  } else {
+    window.currentProfile = null;
+    localStorage.removeItem('profileId');
+  }
+});
+
+async function requireAuth() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session && session.user) return session.user;
+  openAuthModal();
+  throw new Error('auth_required');
+}
+/* --- end Supabase Auth helpers --- */
+// --- UX Loading helpers (Patch UX-1) ---
+function showLoadingOverlay(message = 'Carregando...') {
+  // avoid duplicate
+  if (document.getElementById('rx-loading-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'rx-loading-overlay';
+  overlay.style.cssText = `
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.6); z-index:100000; color:white; padding:20px; backdrop-filter:blur(6px);
+  `;
+  overlay.innerHTML = `
+    <div style="text-align:center; max-width:320px; width:100%;">
+      <div class="spinner" style="margin:0 auto 12px;"></div>
+      <div style="font-size:16px; opacity:0.95;">${message}</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function hideLoadingOverlay() {
+  const el = document.getElementById('rx-loading-overlay');
+  if (!el) return;
+  el.remove();
+}
+// --- fim UX Loading helpers ---
+
+/* --- UX Toast Helper (Patch UX-2) --- */
+function showToast(message) {
+  const existing = document.getElementById("rx-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "rx-toast";
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(0,0,0,0.85);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    z-index: 999999;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  `;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(-50%) translateY(0)";
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(-50%) translateY(10px)";
+    setTimeout(() => toast.remove(), 250);
+  }, 2200);
+}
+/* --- fim UX Toast Helper --- */
 window.addEventListener('load', function() {
   initApp();
 });
 
 function initApp() {
+  /* --- C.1: Sync automático de sessão Supabase --- */
+  supabaseClient.auth.getSession().then(async ({ data }) => {
+    const session = data?.session;
+    if (!session || !session.user) return;
+
+    try {
+      const { data: profile } = await supabaseClient
+        .from("profiles")
+        .select("*")
+        .eq("auth_uid", session.user.id)
+        .single();
+
+      if (profile) {
+        window.currentProfile = profile;
+
+        localStorage.setItem("profileId", profile.id || "");
+        localStorage.setItem("profileName", profile.name || "");
+        localStorage.setItem("profileEmail", profile.email || "");
+        localStorage.setItem("profilePhoto", profile.photo_url || "");
+        localStorage.setItem("profileUser", profile.username || "");
+        localStorage.setItem("profilePhone", profile.phone || "");
+      }
+    } catch (err) {
+      console.error("Erro ao sincronizar sessão:", err);
+    }
+  });
+  /* --- fim sync automático --- */
   // Configuração mobile-first
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('gesturechange', e => e.preventDefault());
@@ -485,39 +749,111 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     ob3.classList.add("active");
   });
 
-  document.getElementById("finishOnboarding").addEventListener("click", () => {
+  document.getElementById("finishOnboarding").addEventListener("click", async () => {
     const name = document.getElementById("onName").value.trim();
     const user = document.getElementById("onUser").value.trim();
     const phone = document.getElementById("onPhone").value.trim();
     const email = document.getElementById("onEmail").value.trim();
-    
+
     if (!name || !user || !phone || !email) {
       alert("Preencha todos os campos.");
       return;
     }
-    
-    localStorage.setItem("profileName", name);
-    localStorage.setItem("profileUser", user);
-    localStorage.setItem("profilePhone", phone);
-    localStorage.setItem("profileEmail", email);
-    localStorage.setItem("onboardingDone", "1");
-    
-    ob3.classList.remove("active");
-    autoloadSharedRole();
+
+    try {
+      const userObj = await requireAuth();
+
+      const profilePayload = {
+        auth_uid: userObj.id,
+        name,
+        username: user,
+        phone,
+        email,
+        photo_url: localStorage.getItem('profilePhoto') || null
+      };
+
+      const { data: existing } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('auth_uid', userObj.id)
+        .limit(1)
+        .single();
+
+      if (existing) {
+        await supabaseClient
+          .from('profiles')
+          .update(profilePayload)
+          .eq('auth_uid', userObj.id);
+
+        window.currentProfile = { ...existing, ...profilePayload };
+      } else {
+        const { data: newProfile } = await supabaseClient
+          .from('profiles')
+          .insert(profilePayload)
+          .select()
+          .single();
+
+        window.currentProfile = newProfile;
+      }
+
+      localStorage.setItem('profileId', window.currentProfile.id);
+      localStorage.setItem('profileName', window.currentProfile.name || '');
+      localStorage.setItem('profileEmail', window.currentProfile.email || '');
+      localStorage.setItem('profilePhoto', window.currentProfile.photo_url || '');
+      localStorage.setItem("onboardingDone", "1");
+
+      document.getElementById("onboarding3").classList.remove("active");
+      autoloadSharedRole();
+      showToast('Perfil salvo');
+    } catch (err) {
+      if (err.message !== 'auth_required') console.error(err);
+    }
   });
 
   // Autoload shared role
-  function autoloadSharedRole() {
-    // --- Shortlink loader ---
-    const shortId = new URLSearchParams(window.location.search).get("s");
-    if (shortId) {
-        const shortPayloads = JSON.parse(localStorage.getItem("shortPayloads") || "{}");
-        const payload = shortPayloads[shortId];
-        if (payload) {
-            showSharedRoleView(payload);
-        } else {
-            alert("Rolê não encontrado ou expirado.");
-        }
+  async function autoloadSharedRole() {
+    const roleId = new URLSearchParams(location.search).get("role");
+    if (!roleId) return;
+
+    try {
+      showLoadingOverlay('Carregando rolê...');
+
+      const { data: role, error } = await supabaseClient
+        .from("roles")
+        .select("id, titulo, creator_name, creator_photo")
+        .eq("id", roleId)
+        .single();
+
+      if (error || !role) {
+        console.error("Erro carregando role:", error);
+        hideLoadingOverlay();
+        return;
+      }
+
+      const { data: wps, error: wpsErr } = await supabaseClient
+        .from("waypoints")
+        .select("*")
+        .eq("role_id", roleId)
+        .order("ts", { ascending: true });
+
+      if (wpsErr) {
+        console.error('Erro carregando waypoints:', wpsErr);
+        hideLoadingOverlay();
+        return;
+      }
+
+      showSharedRoleView({
+        titulo: role.titulo,
+        creatorName: role.creator_name,
+        creatorPhoto: role.creator_photo,
+        waypoints: wps || []
+      });
+
+      // ensure overlay hides after view is ready
+      setTimeout(() => hideLoadingOverlay(), 300);
+    } catch (e) {
+      console.error("Erro carregando role do Supabase:", e);
+      hideLoadingOverlay();
     }
   }
 
@@ -547,7 +883,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const creatorPhoto = roleData.creatorPhoto || "";
     
     sharedHeader.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px; width:100%;">
         ${creatorPhoto ? `<img src="${creatorPhoto}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` : `
           <div style="width: 40px; height: 40px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; font-size: 20px;">
             📍
@@ -557,6 +893,11 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
           <div style="font-weight: 600; font-size: 16px;">${roleData.titulo || "Rolê"}</div>
           <div style="font-size: 13px; opacity: 0.7;">por ${creatorName}</div>
         </div>
+
+        <button id="createMyRole" style="background:#0066ff; border:none; color:white; padding:8px 12px; border-radius:8px; font-size:14px; min-height:auto;">
+          Criar meu rolê
+        </button>
+
         <button id="closeSharedView" style="background: transparent; border: none; color: white; font-size: 24px; padding: 4px 8px; min-height: auto;">✕</button>
       </div>
     `;
@@ -581,14 +922,44 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       clearMap();
       map.setView([-27.5954, -48.5480], 13);
     });
+
+    // Botão Criar Meu Rolê
+    document.getElementById("createMyRole").addEventListener("click", () => {
+      const newUrl = window.location.origin + window.location.pathname;
+      window.history.pushState({}, '', newUrl);
+
+      sharedHeader.remove();
+      mapEl.style.paddingTop = '0';
+      bottomBar.style.display = 'flex';
+
+      clearMap();
+      map.setView([-27.5954, -48.5480], 13);
+
+      // abrir upload automaticamente
+      document.getElementById("upload").click();
+    });
   }
 
   // Upload de mídias
-  document.getElementById("uploadBtn").addEventListener("click", () => {
-    document.getElementById("upload").click();
+  document.getElementById("uploadBtn").addEventListener("click", async () => {
+    try {
+      await requireAuth();
+      document.getElementById("upload").click();
+    } catch (err) {
+      if (err.message !== "auth_required") {
+        console.error(err);
+      }
+    }
   });
 
   document.getElementById("upload").addEventListener("change", async (e) => {
+    try {
+      await requireAuth();
+    } catch (err) {
+      if (err.message === "auth_required") return;
+      console.error(err);
+      return;
+    }
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
@@ -599,13 +970,13 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     document.body.appendChild(loadingDiv);
 
     waypoints = [];
+    let ignoredFiles = [];
     clearMap();
 
     for (let file of files) {
-      // Ignorar vídeos longos
-      if (file.type.startsWith("video")) {
-        const duration = await getVideoDuration(file);
-        if (duration > 4) continue;
+      if (!file.type.startsWith("image")) {
+        ignoredFiles.push(file.name + " (somente fotos são permitidas)");
+        continue;
       }
 
       const exif = await window.exifr.gps(file);
@@ -618,12 +989,18 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
           lon: exif.longitude,
           name: file.name,
           thumbnail,
-          isVideo: file.type.startsWith("video"),
+          isVideo: false,
           ts
         });
+      } else {
+        ignoredFiles.push(file.name + " (sem localização GPS)");
       }
     }
 
+    // Mostrar toast para arquivos ignorados
+    if (ignoredFiles.length > 0) {
+      showToast(ignoredFiles.length + " arquivo(s) ignorado(s)");
+    }
     // Ordenar por timestamp
     waypoints.sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
@@ -637,14 +1014,19 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   });
 
   function clearMap() {
-    markers = [];
-    if (currentRoute) {
-      map.removeLayer(currentRoute);
-      currentRoute = null;
+    // Remove all markers added by the app
+    if (markers && markers.length) {
+      markers.forEach(m => {
+        if (m && map.hasLayer(m)) map.removeLayer(m);
+      });
     }
-    map.eachLayer(layer => {
-      if (layer instanceof L.Marker) map.removeLayer(layer);
-    });
+    markers = [];
+
+    // Remove current route if exists
+    if (currentRoute && map.hasLayer(currentRoute)) {
+      map.removeLayer(currentRoute);
+    }
+    currentRoute = null;
   }
 
   function renderWaypoints() {
@@ -655,9 +1037,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       const marker = L.marker([wp.lat, wp.lon]).addTo(map);
       markers.push(marker);
 
-      const mediaHTML = wp.isVideo
-        ? `<video src="${wp.thumbnail}" class="thumbnail" autoplay loop muted playsinline></video>`
-        : `<img src="${wp.thumbnail}" class="thumbnail">`;
+      const mediaHTML = `<img src="${wp.thumbnail}" class="thumbnail">`;
 
       marker.bindPopup(`
         <div style="text-align:center; min-width:200px;">
@@ -670,8 +1050,19 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
         </div>
       `);
 
+      // Insert popupopen handler before click handler
+      marker.on("popupopen", (e) => {
+        setTimeout(() => {
+          const popup = e.popup._container;
+          if (!popup) return;
+          const h = popup.offsetHeight;
+          map.panBy([0, -h / 2], { animate: true });
+        }, 60);
+      });
+
       marker.on("click", () => {
-        map.setView(marker.getLatLng(), 15, { animate: true });
+        map.setView(marker.getLatLng(), 15, { animate: false });
+        marker.openPopup();
       });
 
       bounds.push([wp.lat, wp.lon]);
@@ -680,21 +1071,55 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     if (bounds.length > 0) {
       map.once("moveend", () => {
         if (waypoints.length > 1) {
-          const coords = waypoints.map(w => [w.lat, w.lon]);
-          currentRoute = L.polyline(coords, {
-            color: '#0066ff',
-            weight: 3,
-            opacity: 0.7
-          }).addTo(map);
+          const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
+
+          fetch(`https://router.project-osrm.org/route/v1/foot/${coords}?overview=full&geometries=geojson`)
+            .then(r => r.json())
+            .then(data => {
+              if (!data || data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+                showToast("⚠️ Rota não disponível");
+                console.warn("OSRM fallback triggered:", data);
+                return;
+              }
+              const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+              if (currentRoute) map.removeLayer(currentRoute);
+              currentRoute = L.polyline(routeCoords, {
+                color: '#0066ff',
+                weight: 4,
+                opacity: 0.9
+              }).addTo(map);
+            })
+            .catch(err => {
+              console.error("Erro ao carregar rota OSRM:", err);
+              showToast("⚠️ Falha ao carregar rota");
+            });
         }
       });
-      
-      map.flyToBounds(bounds, { 
-        padding: [50, 50],
+
+      const sharedHeaderEl = document.getElementById("sharedHeader");
+      let topPad = 50;
+
+      if (sharedHeaderEl) {
+        const rect = sharedHeaderEl.getBoundingClientRect();
+        topPad = rect.height + 20; // dynamic header height + small offset
+      }
+
+      map.flyToBounds(bounds, {
+        paddingTopLeft: [0, topPad],
+        paddingBottomRight: [0, 50],
         maxZoom: 15,
-        animate: true 
+        animate: true
       });
     }
+    // --- M4: Auto-focus quando há apenas 1 waypoint ---
+    if (markers.length === 1) {
+      const m = markers[0];
+      setTimeout(() => {
+        map.setView(m.getLatLng(), 16, { animate: true });
+        m.openPopup();
+      }, 200);
+    }
+    // --- fim M4 ---
   }
 
   function loadRoleData(data, title = null) {
@@ -713,63 +1138,94 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const total = markers.length;
     const i = ((index % total) + total) % total;
     const m = markers[i];
-    map.setView(m.getLatLng(), 15, { animate: true });
+    map.setView(m.getLatLng(), 15, { animate: false });
     m.openPopup();
   };
 
   // Salvar rolê
   document.getElementById("saveRoute").addEventListener("click", async () => {
+  try {
     if (!waypoints.length) {
       alert("Nenhum rolê para salvar.");
       return;
     }
 
-    const title = prompt("Dê um título ao seu rolê:");
-    if (!title) return;
+    const titulo = prompt("Dê um título ao seu rolê:");
+    if (!titulo) return;
 
-    const compressed = await Promise.all(
-      waypoints.map(async wp => ({
+    // Criar role no Supabase (com autenticação e profile_id)
+    const creator_name = window.currentProfile?.name || "Anônimo";
+    const creator_photo = window.currentProfile?.photo_url || null;
+
+    // Garantir que o usuário esteja autenticado e tenha profile_id
+    let profileId = window.currentProfile?.id || localStorage.getItem('profileId');
+    if (!profileId) {
+      try {
+        await requireAuth();
+        profileId = window.currentProfile?.id || localStorage.getItem('profileId');
+      } catch (err) {
+        showToast('É preciso entrar para salvar rolês');
+        return;
+      }
+    }
+
+    const role = await createRoleOnSupabase({
+      titulo,
+      creator_name,
+      creator_photo,
+      profile_id: profileId
+    });
+
+    const roleId = role.id;
+
+    // Upload das thumbnails + construção do array final
+    const waypointsPrepared = [];
+    for (let wp of waypoints) {
+      let thumbURL = null;
+
+      const compressed = await compressImage(wp.thumbnail, 300);
+      thumbURL = await uploadThumbnailToSupabase(compressed, roleId, wp.name);
+
+      waypointsPrepared.push({
         lat: wp.lat,
         lon: wp.lon,
         name: wp.name,
-        thumbnail: wp.isVideo ? wp.thumbnail : await compressImage(wp.thumbnail, 300),
-        isVideo: wp.isVideo,
+        thumbnail_url: thumbURL,
+        is_video: false,
         ts: wp.ts
-      }))
-    );
+      });
+    }
 
-    const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
-    const role = {
-      id: Date.now(),
-      titulo: title,
-      data: new Date().toISOString(),
-      waypoints: compressed
-    };
+    // Inserir todos os waypoints de uma vez
+    await insertWaypointsBulk(roleId, waypointsPrepared);
 
-    saved.push(role);
-    localStorage.setItem("rolesSalvos", JSON.stringify(saved));
-    
-    alert("Rolê salvo com sucesso!");
-    
-    window.lastSavedRoleId = role.id;
+    // UI
+    alert("Rolê salvo com sucesso no Supabase!");
+    window.lastSavedRoleId = roleId;
+
     document.getElementById("shareRoute").style.display = "inline-flex";
     document.getElementById("saveRoute").disabled = true;
-  });
 
+  } catch (err) {
+    console.error(err);
+    alert("Erro ao salvar o rolê 😢 — veja o console.");
+  }
+});
   // Profile
   document.getElementById("openProfile").addEventListener("click", () => {
-    document.getElementById("profileName").textContent = localStorage.getItem("profileName") || "—";
-    document.getElementById("profileUser").textContent = "@" + (localStorage.getItem("profileUser") || "—");
-    document.getElementById("profileEmail").textContent = localStorage.getItem("profileEmail") || "—";
-    document.getElementById("profilePhone").textContent = localStorage.getItem("profilePhone") || "—";
-    
-    const photo = localStorage.getItem("profilePhoto");
+    const p = window.currentProfile || {};
+    document.getElementById("profileName").textContent = p.name || "—";
+    document.getElementById("profileUser").textContent = p.username ? ("@" + p.username) : "—";
+    document.getElementById("profileEmail").textContent = p.email || "—";
+    document.getElementById("profilePhone").textContent = p.phone || "—";
+
+    const photo = window.currentProfile?.photo_url || localStorage.getItem("profilePhoto");
     const preview = document.getElementById("profilePhotoPreview");
     if (photo) {
       preview.src = photo;
       preview.style.display = "block";
     }
-    
+
     renderProfileRoles();
     document.getElementById("profileModal").classList.add("active");
   });
@@ -781,39 +1237,124 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   document.getElementById("profilePhotoInput").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const base64 = await fileToBase64(file);
-    localStorage.setItem("profilePhoto", base64);
-    
+
     const preview = document.getElementById("profilePhotoPreview");
-    preview.src = base64;
-    preview.style.display = "block";
+
+    try {
+      // Convert file to base64 for preview
+      const base64 = await fileToBase64(file);
+      preview.src = base64;
+      preview.style.display = "block";
+
+      // Ensure user is authenticated
+      const session = (await supabaseClient.auth.getSession()).data.session;
+      if (!session || !session.user) {
+        showToast("É preciso estar autenticado para atualizar a foto");
+        return;
+      }
+
+      const uid = session.user.id;
+
+      // Convert base64 to Blob
+      const blob = await (await fetch(base64)).blob();
+      const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
+      const path = `profile_photos/${uid}.${ext}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadErr } = await supabaseClient.storage
+        .from("thumbnails")
+        .upload(path, blob, { upsert: true, contentType: blob.type });
+
+      if (uploadErr) {
+        console.error(uploadErr);
+        showToast("Erro ao enviar foto");
+        return;
+      }
+
+      // Get public URL
+      const { data: pub } = supabaseClient.storage.from("thumbnails").getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+
+      // Update profile in Supabase
+      await supabaseClient
+        .from("profiles")
+        .update({ photo_url: publicUrl })
+        .eq("auth_uid", uid);
+
+      // Update local state
+      if (window.currentProfile) {
+        window.currentProfile.photo_url = publicUrl;
+      }
+      localStorage.setItem("profilePhoto", publicUrl);
+
+      showToast("Foto atualizada!");
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao processar foto");
+    }
   });
 
-  function renderProfileRoles() {
-    const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
-    const html = saved.map(r => `
+  async function renderProfileRoles() {
+    const pid = window.currentProfile?.id;
+    if (!pid) {
+      document.getElementById("profileRoles").innerHTML =
+        '<p style="text-align:center; opacity:0.5;">Crie um rolê para aparecer aqui</p>';
+      return;
+    }
+
+    const { data: roles } = await supabaseClient
+      .from("roles")
+      .select("id, titulo, created_at")
+      .eq("profile_id", pid)
+      .order("created_at", { ascending: false });
+
+    if (!roles || roles.length === 0) {
+      document.getElementById("profileRoles").innerHTML =
+        '<p style="text-align:center; opacity:0.5;">Nenhum rolê salvo ainda</p>';
+      return;
+    }
+
+    const html = roles.map(r => `
       <div class="role-card">
         <h3>${r.titulo}</h3>
-        <div class="date">${new Date(r.data).toLocaleDateString('pt-BR')}</div>
+        <div class="date">${new Date(r.created_at).toLocaleDateString('pt-BR')}</div>
         <div class="button-group">
-          <button onclick="window.loadRole(${r.id})" class="btn-secondary">Abrir</button>
-          <button onclick="window.compartilharRole(${r.id})">Compartilhar</button>
+          <button onclick="window.openLoadedRole('${r.id}')" class="btn-secondary">Abrir</button>
+          <button onclick="window.compartilharRole('${r.id}')">Compartilhar</button>
         </div>
       </div>
     `).join("");
-    
-    document.getElementById("profileRoles").innerHTML = html || '<p style="text-align:center; opacity:0.5;">Nenhum rolê salvo ainda</p>';
+
+    document.getElementById("profileRoles").innerHTML = html;
   }
 
-  window.loadRole = function(id) {
-    const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
-    const role = saved.find(r => r.id === id);
-    if (!role) return;
-    
-    document.getElementById("profileModal").classList.remove("active");
-    loadRoleData(role.waypoints);
-    window.currentOpenedRoleId = id;
+  window.openLoadedRole = async function(id) {
+    try {
+      showLoadingOverlay('Abrindo rolê...');
+
+      const { data: wps, error } = await supabaseClient
+        .from("waypoints")
+        .select("*")
+        .eq("role_id", id)
+        .order("ts", { ascending: true });
+
+      if (error) {
+        console.error('Erro ao carregar waypoints:', error);
+        hideLoadingOverlay();
+        return;
+      }
+
+      document.getElementById("profileModal").classList.remove("active");
+      clearMap();
+      loadRoleData(wps);
+      window.currentOpenedRoleId = id;
+
+      // hide loader shortly after render
+      setTimeout(() => hideLoadingOverlay(), 300);
+    } catch (e) {
+      console.error('Erro em openLoadedRole:', e);
+      hideLoadingOverlay();
+    }
   };
 
   // Compartilhar
@@ -823,44 +1364,11 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   });
 
   window.compartilharRole = function(id) {
-    const saved = JSON.parse(localStorage.getItem("rolesSalvos") || "[]");
-    const role = saved.find(r => r.id === id);
-    if (!role) return;
-
-    // --- Shortlink via localStorage Hash ---
-    // Avoid long URLs: only share a 6‑char key
-    const shortId = Math.random().toString(36).substring(2, 8);
-
-    // Store full payload locally so the link stays tiny
-    const shortPayloads = JSON.parse(localStorage.getItem("shortPayloads") || "{}");
-    shortPayloads[shortId] = {
-        titulo: role.titulo,
-        waypoints: role.waypoints,
-        creatorName: localStorage.getItem("profileName") || "Anônimo",
-        creatorPhoto: localStorage.getItem("profilePhoto") || null,
-        creatorUser: localStorage.getItem("profileUser") || null,
-        createdAt: role.data
-    };
-    localStorage.setItem("shortPayloads", JSON.stringify(shortPayloads));
-
-    // Short URL
-    let base = window.location.origin + window.location.pathname;
-    base = base.replace(/index\.html$/i, "").replace(/\/+$/, "");
-    const shareURL = `${base}/?s=${shortId}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: `Rolê: ${role.titulo}`,
-        text: `Confira meu rolê "${role.titulo}"!`,
-        url: shareURL
-      }).then(() => {}).catch(() => {
-        showUniversalShareModal(shareURL, role.titulo);
-      });
-    } else {
-      showUniversalShareModal(shareURL, role.titulo);
-    }
-  };
-
+  const shareURL = `${location.origin}${location.pathname}?role=${id}`;
+  navigator.clipboard.writeText(shareURL).then(() => {
+    showToast("🔗 Link copiado!");
+  });
+};
 
 // Universal share modal helper
 function showUniversalShareModal(url, titulo) {
@@ -934,17 +1442,6 @@ function showUniversalShareModal(url, titulo) {
     });
   }
 
-  async function getVideoDuration(file) {
-    return new Promise(resolve => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = () => {
-        URL.revokeObjectURL(video.src);
-        resolve(video.duration);
-      };
-      video.src = URL.createObjectURL(file);
-    });
-  }
 
   async function compressImage(base64, maxWidth = 300) {
     return new Promise(resolve => {
