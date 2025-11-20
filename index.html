@@ -342,13 +342,33 @@
     <button id="createAccountBtn" class="btn-secondary" style="margin-top:10px;">Criar conta</button>
   </div>
 </div>
+
+<!-- Modal Criar Conta (novo markup) -->
 <div id="createProfileScreen" class="modal-fullscreen">
   <div class="modal-content">
     <h2>Criar Conta</h2>
+
+    <label style="display:block; margin-bottom:10px;">
+      <span style="font-size:14px; opacity:0.8;">Foto de perfil (opcional)</span>
+    </label>
+    <img id="cpPhotoPreview" class="profile-photo" style="display:none; margin-bottom:10px;">
+    <label for="cpPhotoInput" class="btn-secondary" style="padding:10px 16px; display:inline-block; margin-bottom:20px;">
+      📷 Enviar foto
+    </label>
+    <input id="cpPhotoInput" type="file" accept="image/*">
+
     <input id="cpEmail" type="email" placeholder="Email" autocomplete="email">
-    <input id="cpPassword" type="password" placeholder="Senha" autocomplete="new-password">
+
+    <div style="position:relative; width:100%;">
+      <input id="cpPassword" type="password" placeholder="Senha" autocomplete="new-password">
+      <button id="toggleCpPassword" type="button" style="
+        position:absolute; right:12px; top:50%; transform:translateY(-50%);
+        background:none; border:none; color:white; font-size:16px;">👁</button>
+    </div>
+
     <input id="cpName" type="text" placeholder="Nome completo">
     <input id="cpUsername" type="text" placeholder="Nome de usuário (@)">
+    
     <button id="cpCreateBtn">Criar Conta</button>
     <button id="cpBack" class="btn-secondary" style="margin-top:10px;">Voltar</button>
   </div>
@@ -491,16 +511,18 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   document.getElementById("loginScreen").classList.remove("active");
 });
 
-document.getElementById("createAccountBtn").addEventListener("click", () => {
+document.getElementById("createAccountBtn").addEventListener("click", async () => {
   document.getElementById("loginScreen").classList.remove("active");
   document.getElementById("createProfileScreen").classList.add("active");
 });
 
+// Handler para voltar ao login
 document.getElementById("cpBack").addEventListener("click", () => {
   document.getElementById("createProfileScreen").classList.remove("active");
   document.getElementById("loginScreen").classList.add("active");
 });
 
+// Handler de criar conta (novo)
 document.getElementById("cpCreateBtn").addEventListener("click", async () => {
   const email = document.getElementById("cpEmail").value.trim();
   const password = document.getElementById("cpPassword").value.trim();
@@ -512,6 +534,19 @@ document.getElementById("cpCreateBtn").addEventListener("click", async () => {
     return;
   }
 
+  // 1) Validar username único
+  const { data: existingUser } = await supabaseClient
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .limit(1);
+
+  if (existingUser && existingUser.length > 0) {
+    showToast("Esse nome de usuário já está em uso");
+    return;
+  }
+
+  // 2) Criar usuário no Auth
   const { data: authData, error: authError } =
     await supabaseClient.auth.signUp({ email, password });
 
@@ -526,13 +561,36 @@ document.getElementById("cpCreateBtn").addEventListener("click", async () => {
     return;
   }
 
+  // 3) Upload opcional da foto
+  let photoURL = null;
+  const photoFile = document.getElementById("cpPhotoInput").files[0];
+  if (photoFile) {
+    const base64 = await fileToBase64(photoFile);
+    const blob = await (await fetch(base64)).blob();
+    const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
+    const path = `profile_photos/${uid}.${ext}`;
+
+    const { error: uploadErr } = await supabaseClient.storage
+      .from("thumbnails")
+      .upload(path, blob, { upsert: true, contentType: blob.type });
+
+    if (!uploadErr) {
+      const { data: pub } = supabaseClient.storage
+        .from("thumbnails")
+        .getPublicUrl(path);
+      photoURL = pub.publicUrl;
+    }
+  }
+
+  // 4) Criar registro de perfil
   const { error: profileError } = await supabaseClient
     .from("profiles")
     .insert({
       auth_uid: uid,
       email,
       name,
-      username
+      username,
+      photo_url: photoURL
     });
 
   if (profileError) {
@@ -541,9 +599,38 @@ document.getElementById("cpCreateBtn").addEventListener("click", async () => {
     return;
   }
 
-  showToast("Conta criada! Faça login.");
+  // 5) Login automático
+  const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (loginErr) {
+    showToast("Conta criada, mas login falhou");
+    document.getElementById("createProfileScreen").classList.remove("active");
+    document.getElementById("loginScreen").classList.add("active");
+    return;
+  }
+
+  // 6) Finalizar
+  showToast("Bem-vindo!");
   document.getElementById("createProfileScreen").classList.remove("active");
-  document.getElementById("loginScreen").classList.add("active");
+});
+
+// Mostrar/ocultar senha
+document.getElementById("toggleCpPassword").addEventListener("click", () => {
+  const input = document.getElementById("cpPassword");
+  input.type = input.type === "password" ? "text" : "password";
+});
+
+// Preview da foto de perfil
+document.getElementById("cpPhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const base64 = await fileToBase64(file);
+  const preview = document.getElementById("cpPhotoPreview");
+  preview.src = base64;
+  preview.style.display = "block";
 });
 
 document.getElementById("tabUpload").addEventListener("click", () => {
