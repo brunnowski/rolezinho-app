@@ -1095,7 +1095,8 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   };
 
   // Salvar rolê
-  document.getElementById("saveRoute").addEventListener("click", async () => {
+  const saveRouteBtn = document.getElementById("saveRoute");
+  if (saveRouteBtn) saveRouteBtn.addEventListener("click", async () => {
   try {
     if (!waypoints.length) {
       alert("Nenhum rolê para salvar.");
@@ -1162,7 +1163,8 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     console.error(err);
     alert("Erro ao salvar o rolê 😢 — veja o console.");
   }
-});
+  });
+  }
   // Profile
   function loadProfileData() {
     const p = window.currentProfile || {};
@@ -1261,10 +1263,12 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   };
 
   // Compartilhar
-  document.getElementById("shareRoute").addEventListener("click", () => {
+  const shareRouteBtn = document.getElementById("shareRoute");
+  if (shareRouteBtn) shareRouteBtn.addEventListener("click", () => {
     const id = window.lastSavedRoleId || window.currentOpenedRoleId;
     if (id) window.compartilharRole(id);
   });
+  }
 
   window.compartilharRole = function(id) {
   const shareURL = `${location.origin}${location.pathname}?role=${id}`;
