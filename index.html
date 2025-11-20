@@ -340,25 +340,9 @@
     <input id="loginPassword" type="password" placeholder="Senha" autocomplete="current-password">
     <button id="loginBtn">Login</button>
     <button id="createAccountBtn" class="btn-secondary" style="margin-top:10px;">Criar conta</button>
-    <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const btn = document.getElementById("createAccountBtn");
-      if (btn) {
-        btn.addEventListener("click", () => {
-          const login = document.getElementById("loginScreen");
-          const create = document.getElementById("createProfileScreen");
-          if (login && create) {
-            login.classList.remove("active");
-            create.classList.add("active");
-          }
-        });
-      }
-    });
-    </script>
   </div>
 </div>
 
-<!-- Modal Criar Conta (novo markup) -->
 <div id="createProfileScreen" class="modal-fullscreen">
   <div class="modal-content">
     <h2>Criar Conta</h2>
@@ -401,8 +385,16 @@
   <div id="profileRoles"></div>
 </div>
 
-<!-- Map -->
 <div id="map"></div>
+
+<div id="routeActionsBar" style="
+  position:fixed; bottom:70px; left:0; right:0;
+  display:none; justify-content:center; align-items:center;
+  gap:10px; padding:12px; z-index:1000;
+  background:rgba(0,0,0,0.8); border-top:1px solid rgba(255,255,255,0.1);">
+  <button id="saveRoute" style="flex:1;">Salvar Rolê</button>
+  <button id="shareRoute" class="btn-secondary" style="flex:1; display:none;">Compartilhar</button>
+</div>
 
 <div id="bottomTabs" style="
   position:fixed; bottom:0; left:0; right:0;
@@ -419,7 +411,6 @@
 </div>
 <input id="uploadInput" type="file" accept="image/*,video/*" multiple style="display:none;">
 
-<!-- Story Editor -->
 <div id="storyEditor">
   <button id="closeStoryEditor" style="position: absolute; top: 20px; right: 20px; z-index: 10;">✕</button>
   <div id="storyCanvasWrapper">
@@ -442,6 +433,45 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Criar o cliente Supabase e expor globalmente como `supabaseClient`
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 window.supabaseClient = supabaseClient;
+
+async function createProfileIfNotExists(user) {
+  if (!user || !user.id) return;
+
+  const uid = user.id;
+  const email = user.email || "";
+
+  // Verifica se já existe perfil
+  const { data: existing, error: selectErr } = await supabaseClient
+    .from("profiles")
+    .select("id")
+    .eq("auth_uid", uid)
+    .limit(1);
+
+  if (selectErr) {
+    console.error("Erro ao verificar profile:", selectErr);
+    return;
+  }
+
+  if (existing && existing.length > 0) {
+    return; // já existe
+  }
+
+  // Cria o perfil mínimo
+  const { error: insertErr } = await supabaseClient.from("profiles").insert({
+    auth_uid: uid,
+    email: email,
+    name: "",
+    username: "",
+    photo_url: null,
+    phone: null
+  });
+
+  if (insertErr) {
+    console.error("Erro ao criar perfil automático:", insertErr);
+  } else {
+    console.log("Perfil criado automaticamente após SIGNED_IN");
+  }
+}
 
 /**
  * uploadThumbnailToSupabase(base64, roleId, filename)
@@ -528,9 +558,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("loginScreen").classList.remove("active");
   });
 
-  // Ensure only one createAccountBtn handler exists and is non-async, as fallback
   const createAccountBtn = document.getElementById("createAccountBtn");
-  if (createAccountBtn) createAccountBtn.addEventListener("click", () => {
+  if (createAccountBtn) createAccountBtn.addEventListener("click", async () => {
     document.getElementById("loginScreen").classList.remove("active");
     document.getElementById("createProfileScreen").classList.add("active");
   });
@@ -603,39 +632,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 4) Criar registro de perfil
-    const { error: profileError } = await supabaseClient
-      .from("profiles")
-      .insert({
-        auth_uid: uid,
-        email,
-        name,
-        username,
-        photo_url: photoURL
-      });
-
-    if (profileError) {
-      console.error(profileError);
-      showToast("Erro ao salvar perfil");
-      return;
-    }
-
-    // 5) Login automático
-    const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (loginErr) {
-      showToast("Conta criada, mas login falhou");
-      document.getElementById("createProfileScreen").classList.remove("active");
-      document.getElementById("loginScreen").classList.add("active");
-      return;
-    }
-
-    // 6) Finalizar
-    showToast("Bem-vindo!");
+    // Nova lógica: não faz login automático, apenas orienta o usuário
+    showToast("Conta criada! Verifique seu email para confirmar.");
     document.getElementById("createProfileScreen").classList.remove("active");
+    document.getElementById("loginScreen").classList.add("active");
+    return;
   });
 
   // Mostrar/ocultar senha
@@ -663,6 +664,17 @@ document.getElementById("tabUpload").addEventListener("click", () => {
 
 document.getElementById("tabHome").addEventListener("click", () => {
   document.getElementById("profileModal").classList.remove("active");
+  // Certifica-se de que se um rolê compartilhado/aberto estiver ativo, ele seja fechado
+  const sharedHeaderEl = document.getElementById("sharedHeader");
+  if (sharedHeaderEl) {
+    sharedHeaderEl.remove();
+    const mapEl = document.getElementById('map');
+    mapEl.style.paddingTop = '0';
+    const bottomTabs = document.getElementById('bottomTabs');
+    if (bottomTabs) bottomTabs.style.display = 'flex';
+    clearMap();
+    window.map.setView([-27.5954, -48.5480], 13);
+  }
 });
 
 document.getElementById("tabProfile").addEventListener("click", () => {
@@ -705,7 +717,7 @@ function showToast(message) {
   toast.textContent = message;
   toast.style.cssText = `
     position: fixed;
-    bottom: 20px;
+    bottom: 90px; /* Adjusted position to avoid conflict with routeActionsBar */
     left: 50%;
     transform: translateX(-50%) translateY(10px);
     background: rgba(0,0,0,0.85);
@@ -763,6 +775,17 @@ function initApp() {
     }
   });
   /* --- fim sync automático --- */
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session?.user) {
+      document.getElementById("loginScreen").classList.remove("active");
+    }
+    if (event === "SIGNED_OUT") {
+      document.getElementById("loginScreen").classList.add("active");
+    }
+    if (event === "SIGNED_IN" && session?.user) {
+      createProfileIfNotExists(session.user);
+    }
+  });
   // Configuração mobile-first
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('gesturechange', e => e.preventDefault());
@@ -789,6 +812,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   window.map = map; // Tornar acessível globalmente para funções onclick
 
   // Autoload shared role
+  autoloadSharedRole();
   async function autoloadSharedRole() {
     const roleId = new URLSearchParams(location.search).get("role");
     if (!roleId) return;
@@ -886,9 +910,11 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const mapEl = document.getElementById('map');
     mapEl.style.paddingTop = '64px';
     
-    // Esconder bottom bar
-    const bottomBar = document.getElementById('bottomBar');
-    bottomBar.style.display = 'none';
+    // Esconder bottom bar e action bar
+    const bottomTabs = document.getElementById('bottomTabs');
+    if (bottomTabs) bottomTabs.style.display = 'none';
+    const actionBar = document.getElementById('routeActionsBar');
+    if (actionBar) actionBar.style.display = 'none';
     
     // Botão para fechar e criar próprio rolê
     document.getElementById('closeSharedView').addEventListener('click', () => {
@@ -896,7 +922,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       window.history.pushState({}, '', newUrl);
       sharedHeader.remove();
       mapEl.style.paddingTop = '0';
-      bottomBar.style.display = 'flex';
+      if (bottomTabs) bottomTabs.style.display = 'flex';
       clearMap();
       map.setView([-27.5954, -48.5480], 13);
     });
@@ -908,26 +934,19 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 
       sharedHeader.remove();
       mapEl.style.paddingTop = '0';
-      bottomBar.style.display = 'flex';
+      if (bottomTabs) bottomTabs.style.display = 'flex';
 
       clearMap();
       map.setView([-27.5954, -48.5480], 13);
 
       // abrir upload automaticamente
-      document.getElementById("upload").click();
+      document.getElementById("uploadInput").click(); // Corrected ID usage
     });
   }
 
   // Upload de mídias
   document.getElementById("uploadInput").addEventListener("change", async (e) => {
     // (handler logic unchanged, just adapted to uploadInput)
-    try {
-      // Optionally require auth here if needed
-    } catch (err) {
-      if (err.message === "auth_required") return;
-      console.error(err);
-      return;
-    }
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
@@ -976,7 +995,11 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     renderWaypoints();
     
     document.body.removeChild(loadingDiv);
-    // document.getElementById("saveRoute").style.display = "inline-flex";
+
+    // Mudar UI para estado de rota pronta para salvar
+    document.getElementById("routeActionsBar").style.display = "flex";
+    document.getElementById("saveRoute").disabled = false;
+    document.getElementById("shareRoute").style.display = "none";
     
     e.target.value = '';
   });
@@ -995,6 +1018,14 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       map.removeLayer(currentRoute);
     }
     currentRoute = null;
+
+    // Esconde a barra de ações
+    const actionBar = document.getElementById('routeActionsBar');
+    if (actionBar) actionBar.style.display = 'none';
+
+    // Remove o botão de compartilhamento do rolê aberto, se existir
+    const shareBtn = document.getElementById('shareCurrentRole');
+    if (shareBtn) shareBtn.remove();
   }
 
   function renderWaypoints() {
@@ -1074,7 +1105,7 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 
       map.flyToBounds(bounds, {
         paddingTopLeft: [0, topPad],
-        paddingBottomRight: [0, 50],
+        paddingBottomRight: [0, 100], // Adjusted for the action bar (70px) + bottomTabs (70px)
         maxZoom: 15,
         animate: true
       });
@@ -1093,10 +1124,13 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   function loadRoleData(data, title = null) {
     waypoints = data;
     renderWaypoints();
-    // Se é um rolê compartilhado, não mostrar botão de compartilhar
+    
+    // Se não for um rolê compartilhado via URL, mostra a barra de ações no modo 'compartilhar'
     const isShared = new URLSearchParams(window.location.search).has("role");
     if (!isShared) {
+      document.getElementById("routeActionsBar").style.display = "flex";
       document.getElementById("shareRoute").style.display = "inline-flex";
+      document.getElementById("saveRoute").disabled = true;
     }
   }
 
@@ -1113,74 +1147,75 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
   // Salvar rolê
   const saveRouteBtn = document.getElementById("saveRoute");
   if (saveRouteBtn) saveRouteBtn.addEventListener("click", async () => {
-  try {
-    if (!waypoints.length) {
-      alert("Nenhum rolê para salvar.");
-      return;
-    }
-
-    const titulo = prompt("Dê um título ao seu rolê:");
-    if (!titulo) return;
-
-    // Criar role no Supabase (com autenticação e profile_id)
-    const creator_name = window.currentProfile?.name || "Anônimo";
-    const creator_photo = window.currentProfile?.photo_url || null;
-
-    // Garantir que o usuário esteja autenticado e tenha profile_id
-    let profileId = window.currentProfile?.id || localStorage.getItem('profileId');
-    if (!profileId) {
-      try {
-        await requireAuth();
-        profileId = window.currentProfile?.id || localStorage.getItem('profileId');
-      } catch (err) {
-        showToast('É preciso entrar para salvar rolês');
+    try {
+      if (!waypoints.length) {
+        showToast("Nenhum rolê para salvar.");
         return;
       }
-    }
 
-    const role = await createRoleOnSupabase({
-      titulo,
-      creator_name,
-      creator_photo,
-      profile_id: profileId
-    });
+      // NOVO: Garantir que o usuário esteja autenticado
+      if (!window.currentProfile || !window.currentProfile.id) {
+          showToast('É preciso estar logado para salvar rolês.');
+          // Tenta focar na tela de login se não estiver logado
+          document.getElementById("loginScreen").classList.add("active");
+          return;
+      }
 
-    const roleId = role.id;
+      const titulo = prompt("Dê um título ao seu rolê:");
+      if (!titulo) return;
 
-    // Upload das thumbnails + construção do array final
-    const waypointsPrepared = [];
-    for (let wp of waypoints) {
-      let thumbURL = null;
+      showLoadingOverlay('Salvando rolê...');
 
-      const compressed = await compressImage(wp.thumbnail, 300);
-      thumbURL = await uploadThumbnailToSupabase(compressed, roleId, wp.name);
+      // Usar dados do perfil autenticado
+      const profileId = window.currentProfile.id;
+      const creator_name = window.currentProfile?.name || "Anônimo";
+      const creator_photo = window.currentProfile?.photo_url || null;
 
-      waypointsPrepared.push({
-        lat: wp.lat,
-        lon: wp.lon,
-        name: wp.name,
-        thumbnail_url: thumbURL,
-        is_video: false,
-        ts: wp.ts
+      const role = await createRoleOnSupabase({
+        titulo,
+        creator_name,
+        creator_photo,
+        profile_id: profileId
       });
+
+      const roleId = role.id;
+
+      // Upload das thumbnails + construção do array final
+      const waypointsPrepared = [];
+      for (let wp of waypoints) {
+        let thumbURL = null;
+
+        const compressed = await compressImage(wp.thumbnail, 300);
+        thumbURL = await uploadThumbnailToSupabase(compressed, roleId, wp.name);
+
+        waypointsPrepared.push({
+          lat: wp.lat,
+          lon: wp.lon,
+          name: wp.name,
+          thumbnail_url: thumbURL,
+          is_video: false,
+          ts: wp.ts
+        });
+      }
+
+      // Inserir todos os waypoints de uma vez
+      await insertWaypointsBulk(roleId, waypointsPrepared);
+
+      // UI
+      hideLoadingOverlay();
+      showToast("Rolê salvo com sucesso!");
+      window.lastSavedRoleId = roleId;
+
+      document.getElementById("shareRoute").style.display = "inline-flex";
+      document.getElementById("saveRoute").disabled = true;
+
+    } catch (err) {
+      console.error(err);
+      hideLoadingOverlay();
+      showToast("Erro ao salvar o rolê 😢");
     }
-
-    // Inserir todos os waypoints de uma vez
-    await insertWaypointsBulk(roleId, waypointsPrepared);
-
-    // UI
-    alert("Rolê salvo com sucesso no Supabase!");
-    window.lastSavedRoleId = roleId;
-
-    document.getElementById("shareRoute").style.display = "inline-flex";
-    document.getElementById("saveRoute").disabled = true;
-
-  } catch (err) {
-    console.error(err);
-    alert("Erro ao salvar o rolê 😢 — veja o console.");
-  }
   });
-  }
+  
   // Profile
   function loadProfileData() {
     const p = window.currentProfile || {};
@@ -1200,6 +1235,9 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 
   document.getElementById("closeProfile").addEventListener("click", () => {
     document.getElementById("profileModal").classList.remove("active");
+    // Garante que o botão de compartilhamento de rolê aberto seja removido ao fechar o modal
+    const shareCurrentRoleBtn = document.getElementById("shareCurrentRole");
+    if(shareCurrentRoleBtn) shareCurrentRoleBtn.remove(); 
   });
 
   async function renderProfileRoles() {
@@ -1257,12 +1295,16 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       loadRoleData(wps);
       window.currentOpenedRoleId = id;
 
-      // Insert share button after rendering
+      // Remove o botão de compartilhamento anterior, se existir
+      const existingShareBtn = document.getElementById("shareCurrentRole");
+      if(existingShareBtn) existingShareBtn.remove();
+      
+      // Insere o botão de compartilhamento flutuante
       document.getElementById("tabUpload").insertAdjacentHTML("afterend", `
         <button id="shareCurrentRole" style="
           position:absolute; bottom:35px; right:20px;
           background:#333; border:1px solid #555; color:white;
-          padding:10px 14px; border-radius:12px;">
+          padding:10px 14px; border-radius:12px; z-index:1001;">
           Compartilhar
         </button>
       `);
@@ -1284,79 +1326,15 @@ L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
     const id = window.lastSavedRoleId || window.currentOpenedRoleId;
     if (id) window.compartilharRole(id);
   });
-  }
-
+  
   window.compartilharRole = function(id) {
-  const shareURL = `${location.origin}${location.pathname}?role=${id}`;
-  navigator.clipboard.writeText(shareURL).then(() => {
-    showToast("🔗 Link copiado!");
-  });
-};
-
-// Universal share modal helper
-function showUniversalShareModal(url, titulo) {
-  const modal = document.createElement('div');
-  modal.style.cssText = `
-    position:fixed; inset:0; background:rgba(0,0,0,0.9);
-    display:flex; justify-content:center; align-items:center;
-    z-index:99999; color:white; padding:20px; text-align:center;
-    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-  `;
-
-  modal.innerHTML = `
-    <div style="max-width:400px; width:100%;">
-      <h2 style="margin-bottom:16px;">Compartilhar Rolê</h2>
-      <p style="opacity:0.8; margin-bottom:16px;">${titulo}</p>
-
-      <div style="
-        background:#111; border:1px solid #333;
-        padding:12px; border-radius:10px; margin-bottom:20px;
-        font-size:12px; font-family:monospace; word-break:break-all;
-      ">${url}</div>
-
-      <button id="btnCopyLink" style="width:100%; padding:12px; background:#0066ff; color:white; border:none; border-radius:12px; margin-bottom:10px;">
-        Copiar Link
-      </button>
-
-      <button id="btnOpenLink" style="width:100%; padding:12px; background:#333; color:white; border:none; border-radius:12px;">
-        Abrir Link
-      </button>
-
-      <button id="closeShareModal" style="margin-top:20px; background:none; border:none; color:white; opacity:0.7; font-size:14px;">
-        Fechar
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  document.getElementById("btnCopyLink").addEventListener("click", () => {
-    const temp = document.createElement("textarea");
-    temp.value = url;
-    document.body.appendChild(temp);
-    temp.select();
-    document.execCommand("copy");
-    temp.remove();
-    alert("Link copiado!");
-  });
-
-  document.getElementById("btnOpenLink").addEventListener("click", () => {
-    window.open(url, "_blank");
-  });
-
-  document.getElementById("closeShareModal").addEventListener("click", () => modal.remove());
-  modal.addEventListener("click", e => { if (e.target === modal) modal.remove(); });
-}
-
+    const shareURL = `${location.origin}${location.pathname}?role=${id}`;
+    navigator.clipboard.writeText(shareURL).then(() => {
+      showToast("🔗 Link copiado!");
+    });
+  };
+  
   // Helper functions
-  function getBaseURL() {
-    let base = window.location.origin + window.location.pathname;
-    if (base.endsWith("index.html")) {
-      base = base.replace("index.html", "");
-    }
-    base = base.replace(/\/+$/, "");
-    return base;
-  }
   async function fileToBase64(file) {
     return new Promise(resolve => {
       const reader = new FileReader();
@@ -1381,6 +1359,12 @@ function showUniversalShareModal(url, titulo) {
       img.src = base64;
     });
   }
+
+  // Story Editor (Removed Universal Share Modal - it was not used)
+  document.getElementById("closeStoryEditor").addEventListener("click", () => {
+      document.getElementById("storyEditor").classList.remove("active");
+  });
+  // NOTE: A lógica de edição/exportação de stories ainda está faltando e deve ser implementada em 'exportStory' e 'storyCanvas'
 
   // Gestão de teclado virtual
   let keyboardOpen = false;
