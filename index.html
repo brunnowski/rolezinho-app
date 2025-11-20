@@ -340,6 +340,21 @@
     <input id="loginPassword" type="password" placeholder="Senha" autocomplete="current-password">
     <button id="loginBtn">Login</button>
     <button id="createAccountBtn" class="btn-secondary" style="margin-top:10px;">Criar conta</button>
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("createAccountBtn");
+      if (btn) {
+        btn.addEventListener("click", () => {
+          const login = document.getElementById("loginScreen");
+          const create = document.getElementById("createProfileScreen");
+          if (login && create) {
+            login.classList.remove("active");
+            create.classList.add("active");
+          }
+        });
+      }
+    });
+    </script>
   </div>
 </div>
 
@@ -513,8 +528,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("loginScreen").classList.remove("active");
   });
 
+  // Ensure only one createAccountBtn handler exists and is non-async, as fallback
   const createAccountBtn = document.getElementById("createAccountBtn");
-  if (createAccountBtn) createAccountBtn.addEventListener("click", async () => {
+  if (createAccountBtn) createAccountBtn.addEventListener("click", () => {
     document.getElementById("loginScreen").classList.remove("active");
     document.getElementById("createProfileScreen").classList.add("active");
   });
