@@ -36,6 +36,10 @@
             border-top-left-radius: 28px;
             border-top-right-radius: 28px;
         }
+#home-page {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
         .bottom-menu button {
             background: none;
             border: none;
@@ -178,12 +182,11 @@
 #auth-modal button{ flex:1; padding:10px; border-radius:8px; border:none }
         /* Simple Home/Profile styling */
         .simple-page {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            font-size: 2em;
-            color: #444;
+            display:block;
+            width:100%;
+            height:100%;
+            overflow-y:auto;
+            -webkit-overflow-scrolling:touch;
         }
         /* Feed & Profile (Figma-like responsive card styles) */
         .feed-card {
@@ -385,9 +388,9 @@
 </head>
 <body>
     <div id="app-content">
-        <div id="home-page" class="simple-page">
+        <div id="home-page" style="display:block; height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative;">
           <div id="feed-container"
-               style="padding:16px; display:flex; flex-direction:column; gap:18px;">
+               style="padding:16px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; height:100%; overflow-y:auto; -webkit-overflow-scrolling:touch;">
           </div>
         </div>
         <div id="map-page" style="display:none; position:relative; width:100%; height:100dvh; overflow:hidden;">
