@@ -21,31 +21,29 @@
             position: fixed;
             z-index: 900;
             left: 0; right: 0; bottom: 0;
-            height: 65px;
-            background: #fff;
-            box-shadow: 0 -2px 15px rgba(60, 60, 60, 0.08);
+            height: 70px;
+            background: #ffffff;
+            box-shadow: 0 -4px 25px rgba(0,0,0,0.08);
             display: flex;
             justify-content: space-around;
             align-items: center;
-            border-top-left-radius: 16px;
-            border-top-right-radius: 16px;
+            border-top-left-radius: 28px;
+            border-top-right-radius: 28px;
         }
         .bottom-menu button {
             background: none;
             border: none;
             flex: 1 1 0;
-            color: #777;
-            font-size: 14px;
-            padding: 8px 0 0 0;
+            font-size: 13px;
+            padding: 6px 0 0 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            transition: color 0.17s;
-            outline: none;
-            cursor: pointer;
+            color: #9aa0a6;
+            transition: color 0.2s;
         }
-        .bottom-menu button.active, .bottom-menu button:focus {
-            color: #2196F3;
+        .bottom-menu button.active {
+            color: #ff6600;
         }
         .bottom-menu i {
             font-size: 22px;
@@ -60,7 +58,10 @@
         /* Thumbnail carousel - mobile first */
         #thumb-carousel {
             position: fixed;
-            left: 0; right: 0; bottom: 150px; /* above floating button */
+            left: 50%; transform: translateX(-50%);
+            bottom: 150px;
+            max-width: 600px;
+            width: 90%;
             height: 86px;
             display: flex;
             align-items: center;
@@ -84,8 +85,8 @@
         .thumbs::-webkit-scrollbar{ height:8px }
         .thumb {
             flex: 0 0 auto;
-            width: 72px;
-            height: 72px;
+            width: 56px;
+            height: 56px;
             border-radius: 10px;
             background: #ffffff;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -105,23 +106,23 @@
         .thumb-nav{
             background: rgba(255,255,255,0.95);
             border: none;
-            width: 36px; height:36px; border-radius:18px;
+            width: 30px; height:30px; border-radius:18px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            font-size: 20px; line-height:0; display:flex; align-items:center; justify-content:center;
+            font-size: 18px; line-height:0; display:flex; align-items:center; justify-content:center;
             pointer-events: auto;
         }
         .floating-btn {
             position: fixed;
-            bottom: 85px;
+            bottom: 95px;
             right: 24px;
             z-index: 1001;
-            background: #2196F3;
+            background: #ff6600;
             color: #fff;
             border: none;
             border-radius: 50%;
-            box-shadow: 0 2px 10px rgba(52,108,199,0.19);
-            width: 58px;
-            height: 58px;
+            box-shadow: 0 3px 12px rgba(255,102,0,0.45);
+            width: 60px;
+            height: 60px;
             font-size: 28px;
             display: flex;
             justify-content: center;
@@ -145,6 +146,25 @@
             height: 100%;
             font-size: 2em;
             color: #444;
+        }
+        .feed-card {
+            background:#fff; border-radius:16px; padding:14px;
+            box-shadow:0 2px 10px rgba(0,0,0,0.06);
+        }
+        .feed-user-row { display:flex; align-items:center; gap:12px; }
+        .feed-avatar { width:42px; height:42px; border-radius:50%; object-fit:cover; }
+        .feed-username { font-weight:600; font-size:15px; }
+        .feed-time { font-size:12px; color:#777; }
+        .feed-map-img { width:100%; height:170px; object-fit:cover; border-radius:12px; margin-top:12px; }
+        .feed-title { font-size:16px; margin-top:10px; font-weight:600; }
+        .feed-metrics { display:flex; justify-content:space-between; margin-top:12px; }
+        .feed-metric-box { text-align:center; }
+        .feed-metric-label { font-size:12px; color:#777; }
+        .feed-metric-value { font-size:15px; font-weight:600; }
+        .feed-actions { display:flex; justify-content:space-between; margin-top:12px; }
+        .feed-actions button {
+            border:none; background:none; font-size:14px;
+            color:#555; display:flex; align-items:center; gap:6px;
         }
         .route-list {
             padding: 16px;
@@ -186,16 +206,72 @@
             font-size: 13px;
             color: #666;
         }
+
+        .route-title-input {
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            margin-bottom: 6px;
+            padding: 0;
+            width: 100%;
+        }
+
+        .route-title-input:focus {
+            outline: none;
+            border-bottom: 1px solid #1e88e5;
+        }
+
+        .route-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .route-actions button {
+            padding: 6px 10px;
+            font-size: 13px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #e9eef3;
+        }
+
+        .route-open-btn {
+            background: #1e88e5;
+            color: #fff;
+        }
+
+        .route-share-btn {
+            background: #43a047;
+            color: #fff;
+        }
         @media (max-width:600px) {
             .floating-btn { right: 12px; bottom: 78px;}
             .bottom-menu { height: 58px; }
             #map { height: calc(100dvh - 58px); }
         }
+
+/* Ensure popup close button stays clickable above UI overlays */
+.leaflet-popup {
+    z-index: 5000 !important;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    z-index: 5001 !important;
+}
+.leaflet-popup-close-button {
+    z-index: 6000 !important;
+}
     </style>
 </head>
 <body>
     <div id="app-content">
-        <div id="home-page" class="simple-page">🏠 HOME</div>
+        <div id="home-page" class="simple-page">
+          <div id="feed-container"
+               style="padding:16px; display:flex; flex-direction:column; gap:18px;">
+          </div>
+        </div>
         <div id="map-page" style="display:none; height:100%">
             <div id="map"></div>
             <!-- THUMBNAIL CAROUSEL (mobile-first) -->
@@ -209,18 +285,58 @@
                 <input type="file" accept="image/*,video/*" multiple id="photo-upload-input">
             </button>
         </div>
-        <div id="profile-page" class="simple-page" style="display:none">👤 PROFILE</div>
+        <div id="profile-page" style="display:none; padding:16px; overflow-y:auto;"></div>
     </div>
     <!-- SAVE ROUTE BUTTON (shows after route plotted) -->
-<div id="save-rolê-container" style="position:fixed; left:16px; right:16px; bottom:240px; z-index:1003; display:none; justify-content:space-between; gap:8px;">
-  <button id="edit-route-btn" style="flex:0 0 58px; height:58px; border-radius:12px; border:none; background:#ffffff; box-shadow:0 6px 18px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center;">
-    <!-- pencil icon -->
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+<div id="save-rolê-container" 
+     style="position:fixed; left:50%; transform:translateX(-50%);
+            bottom:240px; z-index:1003; display:none;
+            flex-direction:row; align-items:flex-start; gap:14px;
+            width:90%; max-width:600px;">
+  
+  <!-- Pencil Button (small) -->
+  <button id="edit-route-btn" style="flex:0 0 58px; height:58px; border-radius:16px; border:none; background:#ffffff; box-shadow:0 6px 18px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/>
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+    </svg>
   </button>
-  <button id="save-route-btn" style="flex:1; padding:12px 16px; border-radius:12px; border:none; background:#1e88e5; color:#fff; font-size:16px; box-shadow:0 6px 18px rgba(30,136,229,0.18); display:flex; align-items:center; justify-content:center; gap:6px;">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-    Salvar
-  </button>
+
+  <!-- Main Title+Desc + Save Wrapped Together -->
+  <div style="flex:1; display:flex; flex-direction:column; gap:16px;">
+      
+      <div id="route-meta-inline" 
+           style="width:100%; max-width:600px; margin:0 auto;
+                  display:flex; flex-direction:column;
+                  gap:14px; padding:18px;
+                  background:#ffffff; border-radius:18px;
+                  box-shadow:0 6px 20px rgba(0,0,0,0.12);">
+        <input id="route-inline-title" type="text"
+            placeholder="Dê um nome ao seu Rolê (Ex: Sunset na Paulista)"
+            style="width:100%; padding:16px 16px; border-radius:14px; border:1px solid #cfd5dc; font-size:17px; font-weight:600; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+
+        <textarea id="route-inline-desc"
+            placeholder="Conte um pouco sobre a experiência e dicas."
+            style="width:100%; height:120px; padding:16px 16px; border-radius:14px; border:1px solid #cfd5dc; font-size:16px; resize:none; line-height:1.45; box-shadow:0 2px 5px rgba(0,0,0,0.05);"></textarea>
+      </div>
+
+      <button id="save-route-btn"
+        style="width:100%; max-width:600px; margin:0 auto;
+               padding:18px 24px; border-radius:18px; border:none;
+               background:#1e88e5; color:#fff; font-size:18px; font-weight:600;
+               box-shadow:0 10px 26px rgba(30,136,229,0.25);
+               display:flex; align-items:center; justify-content:center; gap:10px;"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Salvar
+      </button>
+
+  </div>
+
 </div>
     <nav class="bottom-menu">
         <button id="nav-home" class="active"><i class="fa fa-home"></i><span>Home</span></button>
@@ -259,34 +375,155 @@
       window.supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     </script>
     <script>
+    async function waitForSupabase(){
+      return new Promise(resolve=>{
+        const check = setInterval(()=>{
+          if(window.supa && window.supa.auth){
+            clearInterval(check);
+            resolve(window.supa);
+          }
+        },50);
+      });
+    }
+    window.waitForSupabase = waitForSupabase;
+    </script>
+    <script>
+      // Global helper required by all modules
+      function getSupa() {
+        return window.supa;
+      }
+    </script>
+    <script>
+        // Ensure global access to Supabase
         // Tab switching logic
         function showPage(page) {
+            // Display pages
             document.getElementById('home-page').style.display = (page === 'home') ? '' : 'none';
             document.getElementById('map-page').style.display = (page === 'map') ? '' : 'none';
             document.getElementById('profile-page').style.display = (page === 'profile') ? '' : 'none';
-            document.getElementById('nav-home').classList.toggle('active', page === 'home');
-            document.getElementById('nav-map').classList.toggle('active', page === 'map');
-            document.getElementById('nav-profile').classList.toggle('active', page === 'profile');
-            if (page === 'map' && typeof renderMap === 'function') setTimeout(renderMap, 200);
+
+            // Fix active state on bottom menu
+            document.getElementById('nav-home').classList.remove('active');
+            document.getElementById('nav-map').classList.remove('active');
+            document.getElementById('nav-profile').classList.remove('active');
+
+            if (page === 'home') document.getElementById('nav-home').classList.add('active');
+            if (page === 'map') document.getElementById('nav-map').classList.add('active');
+            if (page === 'profile') document.getElementById('nav-profile').classList.add('active');
+
+            // Re-render map if switching to map
+            if (page === 'map' && typeof renderMap === 'function') {
+                setTimeout(renderMap, 150);
+            }
         }
-document.getElementById('nav-home').onclick = async ()=>{
-  if (pendingSave) { showAuthModal(); return; }
-  showPage('home');
-};
-document.getElementById('nav-map').onclick = ()=>showPage('map');
-document.getElementById('nav-profile').onclick = async () => {
-  showPage('profile');
-  await loadUserRoutes();
-};
+
+        document.getElementById('nav-home').onclick = async () => {
+            const user = await getCurrentUser();
+
+            if (user) {
+                // Logged-in → show feed
+                showPage('home');
+                loadHomeFeed();
+                return;
+            }
+
+            // Not logged in → show static home screen with logo + message
+            showPage('home');
+            document.getElementById('feed-container').innerHTML = `
+                <div style="text-align:center; padding:40px;">
+                    <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
+                    <p style="font-size:18px; color:#444; margin-top:10px;">
+                        Entre para ver os rolês da comunidade.
+                    </p>
+                </div>
+            `;
+        };
+
+        document.getElementById('nav-map').onclick = () => {
+            showPage('map');
+        };
+
+        document.getElementById('nav-profile').onclick = async () => {
+            const user = await getCurrentUser();
+
+            if (!user) {
+                showPage('profile');
+                document.getElementById('profile-page').innerHTML =
+                    '<div style="padding:20px; font-size:18px;">Faça login para ver suas rotas.</div>';
+                return;
+            }
+
+            showPage('profile');
+            await loadUserRoutes();
+        };
 
         // ---- MAP & PHOTOS -----
+        // Modal open/close helpers for route meta modal
+        function openRouteMetaModal(){}
+        function closeRouteMetaModal(){}
         // Auto‑restore the map when redirected with ?auth=1
         document.addEventListener('DOMContentLoaded', async ()=>{
+          await window.waitForSupabase();
+          const user = await getCurrentUser();
+
+          if (user) {
+              showPage('map');
+              loadHomeFeed();
+          } else {
+              showPage('map');
+              document.getElementById('feed-container').innerHTML = `
+                  <div style="text-align:center; padding:40px;">
+                      <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
+                      <p style="font-size:18px; color:#444; margin-top:10px;">
+                          Entre para ver os rolês da comunidade.
+                      </p>
+                  </div>
+              `;
+          }
+
+          // Route meta modal logic (originally inside DOMContentLoaded)
+          const routeMetaModal = document.getElementById('route-meta-modal');
+          const metaTitleInput = document.getElementById('route-meta-title');
+          const metaDescInput = document.getElementById('route-meta-desc');
+          const metaCancelBtn = document.getElementById('route-meta-cancel');
+          const metaSaveBtn = document.getElementById('route-meta-save');
+
+          if (metaCancelBtn) metaCancelBtn.onclick = closeRouteMetaModal;
+          if (metaSaveBtn) metaSaveBtn.onclick = async () => {
+              const title = metaTitleInput.value.trim();
+              const description = metaDescInput.value.trim();
+              const lastRouteId = window._lastSavedRouteId;
+
+              if (!lastRouteId) {
+                  closeRouteMetaModal();
+                  return;
+              }
+
+              const { error } = await getSupa()
+                  .from('routes')
+                  .update({ title, description })
+                  .eq('route_id', lastRouteId);
+
+              if (error) {
+                  console.error(error);
+                  alert("Erro ao salvar título/descrição.");
+              }
+
+              closeRouteMetaModal();
+          }
+
           const params = new URLSearchParams(window.location.search);
           if(params.has('auth')){
-            showPage('map');
-            await afterAuthAutoSave();
-            history.replaceState({}, '', window.location.origin);
+              showPage('map');
+              await afterAuthAutoSave();
+              try { history.replaceState({}, '', window.location.pathname); } catch(e){}
+          }
+          const openParam = params.get('open');
+          if (openParam) {
+              showPage('map');
+              loadSavedRoute(openParam);
+              try { history.replaceState({}, '', window.location.pathname); } catch(e){}
+              return;
           }
         });
         let map, routeLayer, markersLayer, waypoints = [];
@@ -363,9 +600,14 @@ let pendingSave = null;
             if (!map) renderMap();
             routeLayer.clearLayers();
             markersLayer.clearLayers();
+            editingRoute = false;
+disableThumbnailReorder();
             // clear old markers and revoke object urls
             markers.forEach(m=>{ if(m._thumbUrl){ URL.revokeObjectURL(m._thumbUrl); } });
             markers = [];
+            setSaveButtonVisible(false);
+editingRoute = false;
+disableThumbnailReorder();
             // Place markers and collect marker objects
             exifArr.forEach((ex, idx)=>{
                 const isStart = idx === 0;
@@ -375,8 +617,21 @@ let pendingSave = null;
                     : isEnd
                         ? L.icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize: [36,36], className: 'end-marker' })
                         : undefined;
-                const marker = L.marker([ex.lat, ex.lng], icon ? {icon} : undefined)
-                               .bindPopup(`${isStart ? 'Início' : isEnd ? 'Fim' : 'Waypoint'}<br>${ex.name}`);
+                const marker = L.marker([ex.lat, ex.lng], icon ? { icon } : undefined)
+                    .bindPopup(`
+                        <div style="min-width:180px">
+                          <label style="font-size:13px;color:#555">Título:</label>
+                          <input type="text" class="popup-title-input" value="${ex.name}" 
+                                 style="width:100%;padding:6px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+                          <label style="font-size:13px;color:#555">Descrição:</label>
+                          <textarea class="popup-desc-input" 
+                                    style="width:100%;height:60px;padding:6px;border:1px solid #ccc;border-radius:6px;resize:none;"></textarea>
+                          <button class="popup-save-btn" 
+                                  style="margin-top:8px;width:100%;padding:8px;background:#1e88e5;color:#fff;border:none;border-radius:6px;">
+                            Salvar
+                          </button>
+                        </div>
+                    `);
                 marker.addTo(markersLayer);
                 marker._exif = ex; // attach original file/meta
                 markers.push(marker);
@@ -386,6 +641,22 @@ let pendingSave = null;
                     const i = markers.indexOf(marker);
                     if(i>=0) openThumbnailAt(i);
                 });
+            });
+
+            // Attach popup save event
+            map.on('popupopen', (e) => {
+                const popupEl = e.popup._contentNode;
+                const marker = e.popup._source;
+                const titleInput = popupEl.querySelector('.popup-title-input');
+                const descInput = popupEl.querySelector('.popup-desc-input');
+                const saveBtn = popupEl.querySelector('.popup-save-btn');
+                if (saveBtn) {
+                    saveBtn.onclick = () => {
+                        marker._exif.name = titleInput.value.trim();
+                        marker._exif.description = descInput.value.trim();
+                        alert('Informações atualizadas!');
+                    };
+                }
             });
 
             // If only one media, skip OSRM routing entirely
@@ -455,6 +726,125 @@ let pendingSave = null;
         }
 
 // --- Thumbnail drag reorder support ---
+
+function openSavedRoutePoint(idx){
+    if (!markers[idx]) return;
+    const marker = markers[idx];
+    // Pan & open popup
+    map.panTo(marker.getLatLng(), { animate:true });
+    marker.openPopup();
+    // Force Leaflet to refresh popup contents async
+    setTimeout(() => {
+      if (marker.getPopup()) {
+        marker.update();
+      }
+    }, 50);
+}
+
+async function loadSavedRoute(routeId) {
+  setSaveButtonVisible(false);
+  if (!map) renderMap();
+  routeLayer.clearLayers();
+  markersLayer.clearLayers();
+  markers = [];
+
+  const { data, error } = await getSupa()
+    .from('routes')
+    .select('*')
+    .eq('route_id', routeId)
+    .single();
+
+  if (error || !data) {
+    alert('Erro ao carregar o rolê.');
+    return;
+  }
+
+  const exifArr = data.points
+    .sort((a, b) => a.order - b.order)
+    .map(p => ({
+      lat: p.lat,
+      lng: p.lng,
+      name: 'Ponto',
+      file: null
+    }));
+
+  exifArr.forEach((ex, idx) => {
+    const marker = L.marker([ex.lat, ex.lng]).addTo(markersLayer);
+    marker._exif = ex;
+    markers.push(marker);
+
+    const photoMatch = data.photos?.find(p => p.order === idx);
+
+    const popupHtml = `
+      <div style="min-width:200px; text-align:center;">
+        <img src="${photoMatch?.url || ''}"
+             style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" />
+
+        <div style="font-size:15px; font-weight:600; margin-bottom:6px;">
+          Ponto ${idx + 1} de ${exifArr.length}
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:10px;">
+          <button class="popup-prev" data-idx="${idx}"
+                  style="padding:6px 10px; border:none; border-radius:6px; background:#eee;">◀</button>
+          <button class="popup-next" data-idx="${idx}"
+                  style="padding:6px 10px; border:none; border-radius:6px; background:#eee;">▶</button>
+        </div>
+      </div>
+    `;
+    marker.bindPopup(popupHtml);
+  });
+
+  map.on('popupopen', (e) => {
+    const popup = e.popup._contentNode;
+    const marker = e.popup._source;
+    const idx = markers.indexOf(marker);
+
+    if (!popup) return;
+
+    const imgEl = popup.querySelector('img');
+    if (imgEl) {
+      const match = data.photos?.find(p => p.order === idx);
+      imgEl.src = match?.url || '';
+    }
+
+    const prevBtn = popup.querySelector('.popup-prev');
+    const nextBtn = popup.querySelector('.popup-next');
+
+    if (prevBtn) {
+      prevBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        const targetIdx = (idx - 1 + markers.length) % markers.length;
+        openSavedRoutePoint(targetIdx);
+      };
+    }
+
+    if (nextBtn) {
+      nextBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        const targetIdx = (idx + 1) % markers.length;
+        openSavedRoutePoint(targetIdx);
+      };
+    }
+
+    // Ensure arrow navigation always triggers correct popup refresh
+    popup.addEventListener("click", (ev)=>{
+      ev.stopPropagation();
+    });
+  });
+
+  if (data.photos?.length) {
+    const first = data.photos[0].url;
+    const preload = new Image();
+    preload.src = first;
+  }
+
+  const coords = exifArr.map(p => [p.lat, p.lng]);
+  const bounds = L.latLngBounds(coords);
+  map.fitBounds(bounds, { padding: [60, 60] });
+
+  document.getElementById('thumb-carousel').style.display = 'none';
+}
 let editingRoute = false;
 
 function enableThumbnailReorder(){
@@ -524,16 +914,34 @@ function disableThumbnailReorder(){
                 el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
             }
         }
+
 // ===== AUTH & SAVE HELPERS =====
 // Show or hide the Save button (show when thumbnails exist)
 function setSaveButtonVisible(visible){
     const container = document.getElementById('save-rolê-container');
     container.style.display = visible ? 'flex' : 'none';
+
+    // Disable bottom nav buttons while editing or saving
+    const homeBtn = document.getElementById('nav-home');
+    const mapBtn = document.getElementById('nav-map');
+    const profileBtn = document.getElementById('nav-profile');
+
+    if (visible) {
+        homeBtn.style.pointerEvents = "none";
+        profileBtn.style.pointerEvents = "none";
+        homeBtn.style.opacity = "0.35";
+        profileBtn.style.opacity = "0.35";
+    } else {
+        homeBtn.style.pointerEvents = "";
+        profileBtn.style.pointerEvents = "";
+        homeBtn.style.opacity = "";
+        profileBtn.style.opacity = "";
+    }
 }
 
 // Check for logged-in user
 async function getCurrentUser(){
-    const { data, error } = await supa.auth.getUser();
+    const { data, error } = await getSupa().auth.getUser();
     if(error) return null;
     return data?.user || null;
 }
@@ -554,7 +962,7 @@ async function handleSignup(email, password){
     if (redirectBase.startsWith("file")) {
         redirectBase = "https://brunnowski.github.io/rolezinho-app";
     }
-    const { data, error } = await supa.auth.signUp({
+    const { data, error } = await getSupa().auth.signUp({
         email,
         password,
         options: {
@@ -565,12 +973,12 @@ async function handleSignup(email, password){
 }
 
 async function handleSignin(email, password){
-    const { data, error } = await supa.auth.signInWithPassword({ email, password });
+    const { data, error } = await getSupa().auth.signInWithPassword({ email, password });
     return { data, error };
 }
 
 // Save route + images to Supabase Storage and insert a record into 'routes' table
-async function saveRouteToSupabase(exifArr){
+async function saveRouteToSupabase(exifArr, options = {}){
     const user = await getCurrentUser();
     if(!user) {
         // trigger auth flow and set pending
@@ -590,26 +998,29 @@ async function saveRouteToSupabase(exifArr){
         const filename = `${i}_${file.name}`;
         const path = `roles/${user.id}/${routeId}/${filename}`;
         try {
-            const { data: uploadData, error: uploadError } = await supa.storage.from('roles').upload(path, file, { upsert: true });
+            const { data: uploadData, error: uploadError } = await getSupa().storage.from('roles').upload(path, file, { upsert: true });
             if(uploadError){
                 console.error('Upload error', uploadError);
                 continue;
             }
-            const { data: publicUrlData } = supa.storage.from('roles').getPublicUrl(path);
+            const { data: publicUrlData } = getSupa().storage.from('roles').getPublicUrl(path);
             uploadedPhotos.push({ url: publicUrlData.publicUrl, order: i, filename });
         } catch(err){
             console.error('Upload exception', err);
         }
     }
 
-    // Insert route record
+    // Insert route record, now with title/description from inline fields if provided
     try{
-        const { data: insertData, error: insertError } = await supa.from('routes').insert([{
+        const { title = "", description = "" } = options;
+        const { data: insertData, error: insertError } = await getSupa().from('routes').insert([{
             user_id: user.id,
             route_id: routeId,
             points: points,
             photos: uploadedPhotos,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            title,
+            description
         }]);
         if(insertError){
             console.error('Insert error', insertError);
@@ -617,8 +1028,19 @@ async function saveRouteToSupabase(exifArr){
             return;
         }
         alert('Rolê salvo com sucesso!');
+        window._lastSavedRouteId = routeId;
+        
+        // Close popup only AFTER saving successfully
+if (typeof map !== "undefined" && map.closePopup) {
+    map.closePopup();
+}
+        // Instead of openRouteMetaModal(), update inline fields:
+        document.getElementById('route-inline-title').value = title || "";
+        document.getElementById('route-inline-desc').value = description || "";
         // hide Save UI
         setSaveButtonVisible(false);
+        editingRoute = false;
+        disableThumbnailReorder();
     } catch(e){
         console.error(e);
         alert('Erro inesperado ao salvar.');
@@ -635,20 +1057,65 @@ async function afterAuthAutoSave(){
         await saveRouteToSupabase(exifArr);
     }
 }
+
 // Save button handler
-document.getElementById('save-route-btn').addEventListener('click', async ()=>{
-    // collect the exif objects from markers (they are stored in markers[]. _exif)
-    const exifArr = markers.map(m=>m._exif).filter(Boolean);
-    if(!exifArr.length){ alert('Nenhuma rota disponível'); return; }
+document.getElementById('save-route-btn').addEventListener('click', async () => {
+    console.log("🔵 SAVE CLICKED");
+    console.log("Markers:", markers);
+
+    const exifArr = markers.map(m => m._exif).filter(Boolean);
+
+    console.log("EXIF ARRAY:", exifArr);
+
+    if (!exifArr.length) {
+        alert('Nenhuma rota disponível — nenhum ponto encontrado.');
+        return;
+    }
+
+    // Get title/desc from inline fields before saving
+    const inlineTitle = document.getElementById('route-inline-title').value.trim();
+    const inlineDesc = document.getElementById('route-inline-desc').value.trim();
+
+    // Require title and description before saving
+    if (!inlineTitle || !inlineDesc) {
+        alert("Dê um nome ao rolê e escreva uma descrição antes de salvar.");
+        return;
+    }
+
     const user = await getCurrentUser();
-    if(user){ showPage('map'); await saveRouteToSupabase(exifArr); return; }
-    await saveRouteToSupabase(exifArr);
+    console.log("USER:", user);
+
+    if (user) {
+        showPage('map');
+        await saveRouteToSupabase(exifArr, { title: inlineTitle, description: inlineDesc });
+        return;
+    }
+
+    pendingSave = exifArr;
+    showAuthModal();
 });
 
 // EDIT ROUTE BUTTON HANDLER
 const editBtn = document.getElementById('edit-route-btn');
 editBtn.addEventListener('click', ()=>{
   editingRoute = !editingRoute;
+
+  // Disable nav buttons when editing route
+  const homeBtn = document.getElementById('nav-home');
+  const profileBtn = document.getElementById('nav-profile');
+
+  if (editingRoute) {
+      homeBtn.style.pointerEvents = "none";
+      profileBtn.style.pointerEvents = "none";
+      homeBtn.style.opacity = "0.35";
+      profileBtn.style.opacity = "0.35";
+  } else {
+      homeBtn.style.pointerEvents = "";
+      profileBtn.style.pointerEvents = "";
+      homeBtn.style.opacity = "";
+      profileBtn.style.opacity = "";
+  }
+
   if(editingRoute){
     enableThumbnailReorder();
     editBtn.style.background = '#ffe28a';
@@ -661,6 +1128,7 @@ editBtn.addEventListener('click', ()=>{
 // Auth modal controls (signup / login)
 // EVENT DELEGATION for dynamic modal buttons
 document.getElementById('auth-modal').addEventListener('click', async (ev)=>{
+    await window.waitForSupabase();
     const el = ev.target;
     // Close modal when clicking outside modal-inner
     if (el.id === 'auth-modal') {
@@ -669,15 +1137,26 @@ document.getElementById('auth-modal').addEventListener('click', async (ev)=>{
     }
 
     // LOGIN
-    if(el.id === 'auth-login-btn'){
+    if (el.id === 'auth-login-btn') {
         const email = document.getElementById('auth-email')?.value;
         const pass = document.getElementById('auth-pass')?.value;
-        if(!email || !pass){ alert('Preencha email e senha'); return; }
+        if (!email || !pass) { alert('Preencha email e senha'); return; }
+
         const { error } = await handleSignin(email, pass);
-        if(error){ alert('Erro no login: ' + error.message); return; }
-        showPage('map');
-        if(!pendingSave){ openThumbnailAt(0); }
+        if (error) { alert('Erro no login: ' + error.message); return; }
+
+        hideAuthModal();
         await afterAuthAutoSave();
+
+        // If opening a shared route, skip map start
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('open')) {
+            showPage('map');
+            return;
+        }
+
+        showPage('profile');
+        await loadUserRoutes();
     }
 
     // SIGNUP
@@ -687,6 +1166,9 @@ document.getElementById('auth-modal').addEventListener('click', async (ev)=>{
         if(!email || !pass){ alert('Preencha email e senha'); return; }
         const { error } = await handleSignup(email, pass);
         if(error){ alert('Erro no cadastro: ' + error.message); return; }
+
+        showPage('profile');
+        await loadUserRoutes();
 
         const inner = document.querySelector('#auth-modal .modal-inner');
         inner.innerHTML = `
@@ -734,15 +1216,10 @@ document.getElementById('auth-modal').addEventListener('click', async (ev)=>{
     }
 });
 
-// listen for auth state changes (for example email confirmation flow)
-supa.auth.onAuthStateChange((event, session) => {
-    if(event === 'SIGNED_IN'){
-        // if this was a verification redirect, restore route
-        if(pendingSave){ openThumbnailAt(0); }
-        showPage('map');
-        afterAuthAutoSave();
-    }
-});
+// listen for auth state changes (email confirmation / login)
+window.waitForSupabase().then(supaClient => 
+  supaClient.auth.onAuthStateChange(async (event, session) => {
+}));
 
 // Show MAP by default on mobile PWAs if desired
         // showPage('map'); // Uncomment if you want to start at map
@@ -757,7 +1234,7 @@ async function loadUserRoutes() {
         return;
     }
 
-    const { data, error } = await supa
+    const { data, error } = await getSupa()
         .from('routes')
         .select('*')
         .eq('user_id', user.id)
@@ -778,20 +1255,186 @@ async function loadUserRoutes() {
     const html = data.map(route => {
         const thumb = route.photos?.[0]?.url || "";
         return `
-            <div class="route-card">
+            <div class="route-card" data-route-id="${route.route_id}">
                 <img class="route-thumb" src="${thumb}">
                 <div class="route-info">
-                    <div class="route-title">Rolê ${route.route_id}</div>
+                    <input class="route-title-input" value="${route.title || ("Rolê " + route.route_id)}" />
                     <div class="route-date">${new Date(route.created_at).toLocaleString()}</div>
+                    <div class="route-actions">
+                        <button class="route-open-btn">Abrir</button>
+                        <button class="route-share-btn">Compartilhar</button>
+                    </div>
                 </div>
             </div>
         `;
     }).join('');
+    const container = document.getElementById('profile-page');
+    container.innerHTML = '';
+    container.innerHTML = `<div class="route-list">${html}</div>`;
+    // Attach actions for each route card
+    document.querySelectorAll('.route-card').forEach(card => {
+        const routeId = card.dataset.routeId;
 
-    document.getElementById('profile-page').innerHTML = `
-        <div class="route-list">${html}</div>
-    `;
+        // OPEN BUTTON
+        card.querySelector('.route-open-btn').onclick = (ev) => {
+            ev.stopPropagation();
+            showPage('map');
+            loadSavedRoute(routeId);
+        };
+
+        // SHARE BUTTON
+        card.querySelector('.route-share-btn').onclick = async () => {
+            const shareUrl = `${window.location.href.split('?')[0]}?open=${routeId}`;
+            try {
+                await navigator.share({
+                    title: "Meu rolê",
+                    text: "Veja meu rolê no mapa!",
+                    url: shareUrl
+                });
+            } catch (e) {
+                navigator.clipboard.writeText(shareUrl);
+                alert("Link copiado!");
+            }
+        };
+
+        // TITLE INPUT (auto-save on blur)
+        const titleInput = card.querySelector('.route-title-input');
+        titleInput.addEventListener('blur', async () => {
+            const newTitle = titleInput.value.trim();
+            const { error } = await getSupa()
+                .from('routes')
+                .update({ title: newTitle })
+                .eq('route_id', routeId);
+
+            if (error) {
+                console.error(error);
+                alert("Erro ao salvar título.");
+            }
+        });
+    });
 }
     </script>
+</div>
+
 </body>
 </html>
+    <script>
+﻿// ---- FEED (home page) -----
+async function loadHomeFeed() {
+    await window.waitForSupabase();
+    const feed = document.getElementById("feed-container");
+    feed.innerHTML = "<p style='text-align:center;color:#777'>Carregando feed...</p>";
+
+    const user = await getCurrentUser();
+    if (!user) {
+        feed.innerHTML = `
+            <div style="text-align:center; padding:40px;">
+                <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
+                <p style="font-size:18px; color:#444; margin-top:10px;">
+                    Entre para ver seus rolês.
+                </p>
+            </div>`;
+        return;
+    }
+
+    // 1) Load all routes
+    const { data: routes, error: routesError } = await getSupa()
+        .from('routes')
+        .select('*')
+        .order('created_at', { ascending:false });
+
+    if (routesError) {
+        console.error(routesError);
+        feed.innerHTML = "<p>Erro ao carregar feed</p>";
+        return;
+    }
+
+    if (!routes || !routes.length) {
+        feed.innerHTML = "<p style='padding:20px;text-align:center;'>Nenhum rolê encontrado.</p>";
+        return;
+    }
+
+    // 2) Load all related profiles
+    const ids = [...new Set(routes.map(r => r.user_id))];
+    const { data: profiles } = await getSupa()
+        .from('profiles')
+        .select('*')
+        .in('id', ids);
+
+    const profileMap = {};
+    profiles?.forEach(p => { profileMap[p.id] = p; });
+
+    // 3) Attach profile to each route
+    routes.forEach(route => {
+        const userProfile = profileMap[route.user_id];
+        route.profiles = userProfile ? {
+            name: userProfile.name,
+            photo_url: userProfile.photo_url
+        } : {
+            name: "Usuário",
+            photo_url: "https://i.pravatar.cc/150"
+        };
+    });
+
+    const data = routes;
+
+    feed.innerHTML = data.map(route => {
+        const userName = route.profiles?.name || "Usuário";
+        const userAvatar = route.profiles?.photo_url || "https://i.pravatar.cc/100";
+        const coverPhoto = route.photos?.[0]?.url || "";
+        const timeAgo = timeSince(new Date(route.created_at));
+
+        return `
+        <div class="feed-card" data-route-id="${route.route_id}">
+            <div class="feed-user-row">
+                <img class="feed-avatar" src="${userAvatar}">
+                <div>
+                    <div class="feed-username">${userName}</div>
+                    <div class="feed-time">${timeAgo}</div>
+                </div>
+            </div>
+            <div class="feed-title">${route.title || "Meu rolê"}</div>
+            <img class="feed-map-img" src="${coverPhoto}" />
+            <div class="feed-metrics">
+                <div class="feed-metric-box">
+                    <div class="feed-metric-label">Distância</div>
+                    <div class="feed-metric-value">—</div>
+                </div>
+                <div class="feed-metric-box">
+                    <div class="feed-metric-label">Tempo</div>
+                    <div class="feed-metric-value">—</div>
+                </div>
+                <div class="feed-metric-box">
+                    <div class="feed-metric-label">Pontos</div>
+                    <div class="feed-metric-value">${route.photos?.length || 0}</div>
+                </div>
+            </div>
+            <div class="feed-actions">
+                <button class="feed-like"><i class="fa fa-heart"></i> 24</button>
+                <button class="feed-comment"><i class="fa fa-comment"></i> 5</button>
+                <button class="feed-share"><i class="fa fa-share"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.querySelectorAll('.feed-card').forEach(card => {
+        card.onclick = () => {
+            const id = card.dataset.routeId;
+            window.location.href = `?open=${id}`;
+        };
+    });
+}
+
+function timeSince(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    const intervals = [
+        { label:'h', seconds:3600 },
+        { label:'min', seconds:60 }
+    ];
+    for (const it of intervals) {
+        const v = Math.floor(seconds / it.seconds);
+        if (v >= 1) return `${v} ${it.label} atrás`;
+    }
+    return "agora";
+}
+    </script>
