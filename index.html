@@ -261,6 +261,13 @@
           font-size:15px;
         }
 
+        .feed-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
         .feed-time {
           font-size:12px;
           color:#777;
@@ -561,12 +568,12 @@
 </head>
 <body>
     <div id="app-content">
-        <div id="home-page" style="display:block; height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; overscroll-behavior:contain;">
+        <div id="home-page" style="display:none; height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; overscroll-behavior:contain;">
           <div id="feed-container"
                style="padding:16px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; min-height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding-bottom:90px;">
           </div>
         </div>
-        <div id="map-page" style="display:none;">
+        <div id="map-page" style="display:block;">
             <div id="map"></div>
             <!-- THUMBNAIL CAROUSEL (mobile-first) -->
             <div id="thumb-carousel" style="display:none" aria-hidden="false">
@@ -704,16 +711,12 @@
 
         document.getElementById('nav-home').onclick = async () => {
             const user = await getCurrentUser();
-
-            if (user) {
-                // Logged-in → show feed
-                showPage('home');
-                loadHomeFeed();
+            if (!user) {
+                showPage('map');
                 return;
             }
-
-            // Not logged in → always show map
-            showPage('map'); // always map when not logged in
+            showPage('home');
+            loadHomeFeed();
         };
 
         document.getElementById('nav-map').onclick = () => {
@@ -747,16 +750,7 @@
               showPage('home');
               loadHomeFeed();
           } else {
-              // First access → ALWAYS go to MAP
               showPage('map');
-              document.getElementById('feed-container').innerHTML = `
-                  <div style="text-align:center; padding:40px;">
-                      <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
-                      <p style="font-size:18px; color:#444; margin-top:10px;">
-                          Entre para ver os rolês da comunidade.
-                      </p>
-                  </div>
-              `;
           }
 
           // Route meta modal logic (originally inside DOMContentLoaded)
@@ -1663,7 +1657,10 @@ async function loadUserRoutes() {
     // --- montar header + tabs (igual layout Figma) ---
     container.innerHTML = `
       <div id="profile-header" style="width:100%;padding:24px 0;border-radius:0 0 24px 24px;background:linear-gradient(135deg,#FF6B00,#FF3D00);color:white;display:flex;flex-direction:column;align-items:center;text-align:center;">
-        <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;">
+        <div style="position:relative;">
+          <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;cursor:pointer;">
+          <input type="file" id="profile-avatar-input" accept="image/*" style="display:none;">
+        </div>
         <h2 style="margin:10px 0 4px 0;font-size:20px;font-weight:700;">${username}</h2>
         <p style="font-size:14px;opacity:0.95;margin:0;">${userBio}</p>
         
@@ -1777,6 +1774,43 @@ async function loadUserRoutes() {
     // start with Activities tab
     showActivities();
 }
+
+document.addEventListener("click", (ev)=>{
+  if(ev.target && ev.target.id==="profile-avatar"){
+    const inp = document.getElementById("profile-avatar-input");
+    if(inp) inp.click();
+  }
+});
+
+document.addEventListener("change", async (ev)=>{
+  if(ev.target && ev.target.id==="profile-avatar-input"){
+    const file = ev.target.files[0];
+    if(!file) return;
+    const user = await getCurrentUser();
+    if(!user){
+      alert("Faça login para alterar sua foto.");
+      return;
+    }
+    const path = `avatars/${user.id}/${Date.now()}_${file.name}`;
+    const { error: uploadError } = await getSupa().storage.from("roles").upload(path, file, { upsert:true });
+    if(uploadError){
+      alert("Falha ao enviar imagem.");
+      return;
+    }
+    const { data: pub } = getSupa().storage.from("roles").getPublicUrl(path);
+    const newUrl = pub.publicUrl;
+
+    const { error: profileErr } = await getSupa().from("profiles").update({ photo_url:newUrl }).eq("id", user.id);
+    if(profileErr){
+      alert("Erro ao atualizar perfil.");
+      return;
+    }
+
+    const img = document.getElementById("profile-avatar");
+    if(img) img.src = newUrl;
+    alert("Foto de perfil atualizada!");
+  }
+});
     </script>
     </script>
 
@@ -1893,6 +1927,70 @@ async function loadUserRoutes() {
 
         feed.innerHTML = html;
 
+        // --- FEED INTERACTIONS:Curtir, Comentar, Compartilhar ---
+        document.querySelectorAll('.feed-like').forEach(btn => {
+          btn.onclick = async (ev) => {
+            ev.stopPropagation();
+            const card = btn.closest('.feed-card');
+            const routeId = card.dataset.routeId;
+            const user = await getCurrentUser();
+            if (!user) { alert("Faça login para curtir."); return; }
+
+            // check if user already liked
+            const { data: existing, error: likeErr } = await getSupa()
+              .from("likes")
+              .select("*")
+              .eq("user_id", user.id)
+              .eq("route_id", routeId)
+              .limit(1);
+
+            if (existing && existing.length > 0) {
+              // unlike
+              await getSupa()
+                .from("likes")
+                .delete()
+                .eq("user_id", user.id)
+                .eq("route_id", routeId);
+
+              btn.style.color = "#444";
+              btn.innerHTML = '<i class="fa fa-heart"></i> Curtir';
+            } else {
+              // like
+              await getSupa()
+                .from("likes")
+                .insert([{ user_id: user.id, route_id: routeId }]);
+
+              btn.style.color = "#ff3366";
+              btn.innerHTML = '<i class="fa fa-heart"></i> Curtido';
+            }
+          };
+        });
+
+        document.querySelectorAll('.feed-comment').forEach(btn => {
+          btn.onclick = async (ev) => {
+            ev.stopPropagation();
+            const card = btn.closest('.feed-card');
+            const routeId = card.dataset.routeId;
+            openCommentsModal(routeId);
+          };
+        });
+
+        document.querySelectorAll('.feed-share').forEach(btn => {
+          btn.onclick = async (ev) => {
+            ev.stopPropagation();
+            const card = btn.closest('.feed-card');
+            const routeId = card.dataset.routeId;
+            const shareUrl = window.location.origin + window.location.pathname + "?open=" + routeId;
+
+            if(navigator.share){
+              navigator.share({ title:"Veja este rolê!", url:shareUrl });
+            } else {
+              navigator.clipboard.writeText(shareUrl);
+              alert("Link copiado!");
+            }
+          };
+        });
+
         // wire interactions
         document.querySelectorAll('.feed-card').forEach(card => {
             card.onclick = () => {
@@ -1914,6 +2012,115 @@ async function loadUserRoutes() {
         }
         return 'agora';
     }
+
+    // === Comments Modal Logic ===
+    window.openCommentModal = function(routeId){
+      openCommentsModal(routeId);
+    };
+    window.closeCommentModal = function(){
+      closeCommentsModal();
+    };
+    async function openCommentsModal(routeId){
+      const modal = document.getElementById("comments-modal");
+      const panel = document.getElementById("comments-panel");
+      const list = document.getElementById("comments-list");
+      const title = document.getElementById("comments-title");
+      const input = document.getElementById("comment-input");
+      const send = document.getElementById("comment-send");
+      const closeBtn = document.getElementById("comments-close");
+
+      title.textContent = "Comentários";
+      list.innerHTML = "";
+      input.value = "";
+
+      modal.style.display = "flex";
+      panel.style.transform = "translateY(100%)";
+      setTimeout(()=>{ panel.style.transition="0.25s"; panel.style.transform="translateY(0)"; },10);
+
+      loadComments(routeId);
+
+      closeBtn.onclick = ()=> closeCommentsModal();
+      modal.onclick = (ev)=>{ if(ev.target.id==="comments-modal") closeCommentsModal(); };
+
+      send.onclick = async ()=>{
+        const text = input.value.trim();
+        if(!text) return;
+        const user = await getCurrentUser();
+        if(!user){ alert("Faça login para comentar."); return; }
+
+        await getSupa().from("comments").insert([{ user_id:user.id, route_id:routeId, text }]);
+        input.value = "";
+        loadComments(routeId);
+      };
+    }
+
+    function closeCommentsModal(){
+      const modal = document.getElementById("comments-modal");
+      const panel = document.getElementById("comments-panel");
+      panel.style.transform = "translateY(100%)";
+      setTimeout(()=>{ modal.style.display="none"; panel.style.transition=""; },250);
+    }
+
+    async function loadComments(routeId){
+      const list = document.getElementById("comments-list");
+      list.innerHTML = "";
+
+      const { data: comments } = await getSupa()
+        .from("comments")
+        .select("*, profiles!comments_user_id_fkey(*)")
+        .eq("route_id", routeId)
+        .order("created_at", { ascending:false });
+
+      if(!comments || !comments.length){
+        list.innerHTML = "<div style='padding:12px;color:#666;'>Sem comentários ainda.</div>";
+        return;
+      }
+
+      comments.forEach(c=>{
+        const name = c.profiles?.name || "Usuário";
+        const avatar = c.profiles?.photo_url || "https://i.pravatar.cc/80";
+        const ago = timeSince(new Date(c.created_at));
+
+        const el = document.createElement("div");
+        el.style.background="#f9f9f9";
+        el.style.padding="10px 12px";
+        el.style.borderRadius="12px";
+        el.style.display="flex";
+        el.style.gap="10px";
+        el.innerHTML = `
+          <img src="${avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <div style="font-weight:700;font-size:14px;">${name}</div>
+            <div style="font-size:13px;color:#444;margin:4px 0;">${c.text}</div>
+            <div style="font-size:11px;color:#888;">${ago}</div>
+          </div>
+        `;
+        list.appendChild(el);
+      });
+    }
     </script>
 </body>
+<!-- COMMENTS MODAL -->
+<div id="comments-modal" style="display:none; position:fixed; left:0; right:0; bottom:0; top:0; background:rgba(0,0,0,0.35); z-index:5000; align-items:flex-end; justify-content:center;">
+  <div id="comments-panel" style="width:100%; max-height:70%; background:#fff; border-top-left-radius:20px; border-top-right-radius:20px; padding:16px; box-shadow:0 -4px 20px rgba(0,0,0,0.2); display:flex; flex-direction:column;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div id="comments-title" style="font-size:18px; font-weight:700;">Comentários</div>
+      <button id="comments-close" style="background:none; border:none; font-size:22px; padding:4px;">×</button>
+    </div>
+
+    <div id="comments-list" style="flex:1; overflow-y:auto; padding-right:4px; display:flex; flex-direction:column; gap:12px;">
+      <!-- comments will be injected -->
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #eee;">
+      <img id="comment-user-avatar" src="https://i.pravatar.cc/80" style="width:38px; height:38px; border-radius:50%; object-fit:cover;">
+      <input id="comment-input" type="text" placeholder="Escreva um comentário..." style="flex:1; padding:10px; border-radius:14px; border:1px solid #ddd; font-size:14px;">
+      <button id="comment-send" style="width:44px; height:44px; border-radius:50%; border:none; background:#ff6600; color:white; font-size:18px; display:flex; align-items:center; justify-content:center;">
+        ➤
+      </button>
+    </div>
+
+  </div>
+</div>
 </html>
