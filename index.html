@@ -1364,6 +1364,17 @@ async function loadUserRoutes() {
         return;
     }
 
+    // Load user profile info
+    let userProfile = null;
+    try {
+        const { data: profiles } = await getSupa().from('profiles').select('*').eq('id', user.id);
+        userProfile = profiles && profiles.length ? profiles[0] : {};
+    } catch (e) { userProfile = {}; }
+    const username = userProfile?.name || 'Usuário';
+    const avatar = userProfile?.photo_url || 'https://i.pravatar.cc/100';
+    const userBio = userProfile?.bio || '';
+
+    // Load routes
     const { data, error } = await getSupa()
         .from('routes')
         .select('*')
@@ -1375,72 +1386,105 @@ async function loadUserRoutes() {
         return;
     }
 
+    // Calculate stats
+    const totalRoutes = data?.length || 0;
+    let totalPhotos = 0;
+    if (data && data.length) {
+        totalPhotos = data.reduce((sum, route) => sum + (route.photos?.length || 0), 0);
+    }
+
+    // If no routes, still show profile header
     if (!data.length) {
-        document.getElementById('profile-page').innerHTML = `
-            <div style="padding:20px; font-size:18px;">Você ainda não salvou nenhum rolê.</div>
-        `;
+        const container = document.getElementById('profile-page');
+        container.innerHTML = `
+    <div id="profile-header" style="width:100%;padding:24px 0;border-radius:0 0 24px 24px;background:linear-gradient(135deg,#FF6B00,#FF3D00);color:white;display:flex;flex-direction:column;align-items:center;text-align:center;">
+      <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;">
+      <h2 style="margin:10px 0 4px 0;font-size:20px;font-weight:700;">${username}</h2>
+      <p style="font-size:14px;opacity:0.95;margin:0;">${userBio}</p>
+      
+      <div style="display:flex;gap:18px;margin-top:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:700;">${totalRoutes}</div>
+          <div style="font-size:12px;opacity:0.8;">Rolês</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:700;">${totalPhotos}</div>
+          <div style="font-size:12px;opacity:0.8;">Fotos</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="profile-tabs" style="display:flex;width:100%;border-bottom:1px solid #eee;margin-top:10px;">
+      <button id="tab-activities" style="flex:1;padding:14px;font-size:14px;font-weight:600;border:none;background:white;color:#ff6600;border-bottom:2px solid #ff6600;">Meus Rolês</button>
+      <button id="tab-achievements" style="flex:1;padding:14px;font-size:14px;font-weight:600;border:none;background:white;color:#999;">Conquistas</button>
+    </div>
+
+    <div id="profile-content" style="padding:12px;display:flex;flex-direction:column;gap:14px;">
+      <div style="padding:20px; font-size:18px;">Você ainda não salvou nenhum rolê.</div>
+    </div>
+  `;
         return;
     }
 
-    const html = data.map(route => {
-        const thumb = route.photos?.[0]?.url || "";
-        return `
-            <div class="route-card" data-route-id="${route.route_id}">
-                <img class="route-thumb" src="${thumb}">
-                <div class="route-info">
-                    <input class="route-title-input" value="${route.title || ("Rolê " + route.route_id)}" />
-                    <div class="route-date">${new Date(route.created_at).toLocaleString()}</div>
-                    <div class="route-actions">
-                        <button class="route-open-btn">Abrir</button>
-                        <button class="route-share-btn">Compartilhar</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    // Otherwise, render new profile layout and activity cards
     const container = document.getElementById('profile-page');
-    container.innerHTML = '';
-    container.innerHTML = `<div class="route-list">${html}</div>`;
-    // Attach actions for each route card
-    document.querySelectorAll('.route-card').forEach(card => {
-        const routeId = card.dataset.routeId;
+    container.innerHTML = `
+    <div id="profile-header" style="width:100%;padding:24px 0;border-radius:0 0 24px 24px;background:linear-gradient(135deg,#FF6B00,#FF3D00);color:white;display:flex;flex-direction:column;align-items:center;text-align:center;">
+      <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;">
+      <h2 style="margin:10px 0 4px 0;font-size:20px;font-weight:700;">${username}</h2>
+      <p style="font-size:14px;opacity:0.95;margin:0;">${userBio}</p>
+      
+      <div style="display:flex;gap:18px;margin-top:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:700;">${totalRoutes}</div>
+          <div style="font-size:12px;opacity:0.8;">Rolês</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:700;">${totalPhotos}</div>
+          <div style="font-size:12px;opacity:0.8;">Fotos</div>
+        </div>
+      </div>
+    </div>
 
-        // OPEN BUTTON
-        card.querySelector('.route-open-btn').onclick = (ev) => {
-            ev.stopPropagation();
+    <div id="profile-tabs" style="display:flex;width:100%;border-bottom:1px solid #eee;margin-top:10px;">
+      <button id="tab-activities" style="flex:1;padding:14px;font-size:14px;font-weight:600;border:none;background:white;color:#ff6600;border-bottom:2px solid #ff6600;">Meus Rolês</button>
+      <button id="tab-achievements" style="flex:1;padding:14px;font-size:14px;font-weight:600;border:none;background:white;color:#999;">Conquistas</button>
+    </div>
+
+    <div id="profile-content" style="padding:12px;display:flex;flex-direction:column;gap:14px;"></div>
+  `;
+
+    // Render activity cards (Figma style) into #profile-content
+    const profileContent = container.querySelector('#profile-content');
+    profileContent.innerHTML = '';
+    data.forEach(route => {
+        const cover = route.photos?.[0]?.url || '';
+        const card = `
+    <div class="feed-card" data-route-id="${route.route_id}">
+      <div class="feed-user-row">
+        <img class="feed-avatar" src="${avatar}">
+        <div>
+          <div class="feed-username">${username}</div>
+          <div class="feed-time">${new Date(route.created_at).toLocaleDateString()}</div>
+        </div>
+      </div>
+      <div class="feed-title">${route.title || 'Meu rolê'}</div>
+      <img class="feed-map-img" src="${cover}">
+      <div class="feed-metrics">
+        <div class="feed-metric-box"><div class="feed-metric-label">Pontos</div><div class="feed-metric-value">${route.points.length}</div></div>
+        <div class="feed-metric-box"><div class="feed-metric-label">Fotos</div><div class="feed-metric-value">${route.photos.length}</div></div>
+      </div>
+    </div>
+  `;
+        // Create element and wire click
+        const temp = document.createElement('div');
+        temp.innerHTML = card.trim();
+        const cardEl = temp.firstChild;
+        cardEl.onclick = () => {
             showPage('map');
-            loadSavedRoute(routeId);
+            loadSavedRoute(route.route_id);
         };
-
-        // SHARE BUTTON
-        card.querySelector('.route-share-btn').onclick = async () => {
-            const shareUrl = `${window.location.href.split('?')[0]}?open=${routeId}`;
-            try {
-                await navigator.share({
-                    title: "Meu rolê",
-                    text: "Veja meu rolê no mapa!",
-                    url: shareUrl
-                });
-            } catch (e) {
-                navigator.clipboard.writeText(shareUrl);
-                alert("Link copiado!");
-            }
-        };
-
-        // TITLE INPUT (auto-save on blur)
-        const titleInput = card.querySelector('.route-title-input');
-        titleInput.addEventListener('blur', async () => {
-            const newTitle = titleInput.value.trim();
-            const { error } = await getSupa()
-                .from('routes')
-                .update({ title: newTitle })
-                .eq('route_id', routeId);
-
-            if (error) {
-                console.error(error);
-                alert("Erro ao salvar título.");
-            }
-        });
+        profileContent.appendChild(cardEl);
     });
 }
     </script>
