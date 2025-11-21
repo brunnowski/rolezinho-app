@@ -7,9 +7,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
     <style>
-        #map .leaflet-popup {
-            display: none !important;
-        }
         html, body {
             margin: 0; padding: 0; height: 100%; width: 100%; overflow-x: hidden; overflow-y: hidden;
             background: #f4f8fb;
@@ -75,7 +72,6 @@
             height: 100dvh;
             max-height: 100dvh;
             overflow: hidden;
-            touch-action: none;
             background: #f4f8fb;
         }
         #map {
@@ -399,17 +395,33 @@
   #route-inline-title, #route-inline-desc { font-size:17px; }
 }
 
-/* Ensure popup close button stays clickable above UI overlays */
-.leaflet-popup {
-    z-index: 5000 !important;
+/* === FIX POPUP VISIBILITY (STRONG TOP-LEVEL Z-INDEX) === */
+.leaflet-popup-pane {
+  z-index: 12000 !important;
+  pointer-events: auto !important;
 }
+
+.leaflet-popup {
+  z-index: 12500 !important;
+}
+
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-    z-index: 5001 !important;
+  z-index: 12600 !important;
+  pointer-events: auto !important;
 }
-        .leaflet-popup-close-button {
-            z-index: 6000 !important;
-        }
+
+.leaflet-popup-close-button {
+  z-index: 13000 !important;
+}
+
+/* keep carrossel and save-button below popup */
+#thumb-carousel {
+  z-index: 9000 !important;
+}
+#save-rolê-container {
+  z-index: 9500 !important;
+}
 
 /* === Additional Mobile‑First Responsive Styles (PATCH INSERTED) === */
 /* --- FEED SKELETON LOADING --- */
@@ -964,18 +976,20 @@ disableThumbnailReorder();
 
 // --- Thumbnail drag reorder support ---
 
-function openSavedRoutePoint(idx){
-    if (!markers[idx]) return;
-    const marker = markers[idx];
-    // Pan & open popup
-    map.panTo(marker.getLatLng(), { animate:true });
+function openSavedRoutePoint(idx) {
+  if (!markers[idx]) return;
+  const marker = markers[idx];
+  const latlng = marker.getLatLng();
+  const mapSize = map.getSize();
+  const centerPoint = L.point(mapSize.x / 2, mapSize.y / 2 - 40);
+  const markerPoint = map.latLngToContainerPoint(latlng);
+  const delta = markerPoint.subtract(centerPoint);
+  const target = map.containerPointToLatLng(markerPoint.subtract(delta));
+  map.panTo(target, { animate: true });
+  setTimeout(() => {
     marker.openPopup();
-    // Force Leaflet to refresh popup contents async
-    setTimeout(() => {
-      if (marker.getPopup()) {
-        marker.update();
-      }
-    }, 50);
+    setTimeout(() => marker.update(), 50);
+  }, 120);
 }
 
 async function loadSavedRoute(routeId) {
@@ -985,6 +999,7 @@ async function loadSavedRoute(routeId) {
   markersLayer.clearLayers();
   markers = [];
 
+  // fetch route record
   const { data, error } = await getSupa()
     .from('routes')
     .select('*')
@@ -992,19 +1007,22 @@ async function loadSavedRoute(routeId) {
     .single();
 
   if (error || !data) {
-    alert('Erro ao carregar o rolê.');
+    console.error('loadSavedRoute error', error);
+    alert('Erro ao carregar o rolê. Veja o console.');
     return;
   }
 
-  const exifArr = data.points
-    .sort((a, b) => a.order - b.order)
-    .map(p => ({
-      lat: p.lat,
-      lng: p.lng,
-      name: 'Ponto',
-      file: null
-    }));
+  // build simple exif array from stored points
+  const exifArr = (data.points || [])
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map(p => ({ lat: p.lat, lng: p.lng, name: 'Ponto', file: null }));
 
+  if (!exifArr.length) {
+    alert('Este rolê não contém pontos.');
+    return;
+  }
+
+  // create markers
   exifArr.forEach((ex, idx) => {
     const marker = L.marker([ex.lat, ex.lng]).addTo(markersLayer);
     marker._exif = ex;
@@ -1016,11 +1034,9 @@ async function loadSavedRoute(routeId) {
       <div style="min-width:200px; text-align:center;">
         <img src="${photoMatch?.url || ''}"
              style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" />
-
         <div style="font-size:15px; font-weight:600; margin-bottom:6px;">
           Ponto ${idx + 1} de ${exifArr.length}
         </div>
-
         <div style="display:flex; justify-content:space-between; margin-top:10px;">
           <button class="popup-prev" data-idx="${idx}"
                   style="padding:6px 10px; border:none; border-radius:6px; background:#eee;">◀</button>
@@ -1029,15 +1045,19 @@ async function loadSavedRoute(routeId) {
         </div>
       </div>
     `;
-    marker.bindPopup(popupHtml);
+    marker.bindPopup(popupHtml, { maxWidth: 320 });
+    marker.on('click', () => openSavedRoutePoint(idx));
   });
 
+  // popupopen handler: wire prev/next and update image (stable closure)
+  map.off('popupopen');
   map.on('popupopen', (e) => {
-    const popup = e.popup._contentNode;
     const marker = e.popup._source;
     const idx = markers.indexOf(marker);
-
+    const popup = e.popup._contentNode;
     if (!popup) return;
+
+    L.DomEvent.disableClickPropagation(popup);
 
     const imgEl = popup.querySelector('img');
     if (imgEl) {
@@ -1050,36 +1070,76 @@ async function loadSavedRoute(routeId) {
 
     if (prevBtn) {
       prevBtn.onclick = (ev) => {
+        ev.preventDefault();
         ev.stopPropagation();
         const targetIdx = (idx - 1 + markers.length) % markers.length;
-        openSavedRoutePoint(targetIdx);
+        const targetMarker = markers[targetIdx];
+        map.panTo(targetMarker.getLatLng(), { animate: true });
+        setTimeout(() => {
+          targetMarker.openPopup();
+          setTimeout(() => targetMarker.update(), 40);
+        }, 120);
       };
     }
 
     if (nextBtn) {
       nextBtn.onclick = (ev) => {
+        ev.preventDefault();
         ev.stopPropagation();
         const targetIdx = (idx + 1) % markers.length;
-        openSavedRoutePoint(targetIdx);
+        const targetMarker = markers[targetIdx];
+        map.panTo(targetMarker.getLatLng(), { animate: true });
+        setTimeout(() => {
+          targetMarker.openPopup();
+          setTimeout(() => targetMarker.update(), 40);
+        }, 40);
       };
     }
-
-    // Ensure arrow navigation always triggers correct popup refresh
-    popup.addEventListener("click", (ev)=>{
-      ev.stopPropagation();
-    });
   });
 
-  if (data.photos?.length) {
-    const first = data.photos[0].url;
-    const preload = new Image();
-    preload.src = first;
+  // If only one point, center and open popup
+  if (exifArr.length === 1) {
+    const single = exifArr[0];
+    map.setView([single.lat, single.lng], 16);
+    if (markers[0]) {
+      markers[0].openPopup();
+    }
+    document.getElementById('thumb-carousel').style.display = 'none';
+    return;
   }
 
-  const coords = exifArr.map(p => [p.lat, p.lng]);
-  const bounds = L.latLngBounds(coords);
-  map.fitBounds(bounds, { padding: [60, 60] });
+  // Try to build and render OSRM route polyline
+  try {
+    const coordsStr = exifArr.map(ex => `${ex.lng},${ex.lat}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/foot/${coordsStr}?overview=full&geometries=geojson`;
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (json && json.code === 'Ok' && json.routes && json.routes.length) {
+      const routeGeo = json.routes[0].geometry;
+      routeLayer.clearLayers();
+      const poly = L.geoJSON(routeGeo, { style: { color: '#0099ff', weight: 5, opacity: 0.8 } }).addTo(routeLayer);
+      // fit to poly bounds (prefer poly bounds) or markers
+      try {
+        map.fitBounds(poly.getBounds(), { padding: [60, 60] });
+      } catch (e) {
+        const coords = exifArr.map(p => [p.lat, p.lng]);
+        const bounds = L.latLngBounds(coords);
+        map.fitBounds(bounds, { padding: [60, 60] });
+      }
+    } else {
+      // fallback: fit to markers bounds
+      const coords = exifArr.map(p => [p.lat, p.lng]);
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [60, 60] });
+    }
+  } catch (err) {
+    console.warn('OSRM fetch failed', err);
+    const coords = exifArr.map(p => [p.lat, p.lng]);
+    const bounds = L.latLngBounds(coords);
+    map.fitBounds(bounds, { padding: [60, 60] });
+  }
 
+  // hide thumbnail carousel for saved-route view (you can enable if desired)
   document.getElementById('thumb-carousel').style.display = 'none';
 }
 
@@ -1268,6 +1328,12 @@ async function saveRouteToSupabase(exifArr, options = {}){
             return;
         }
         alert('Rolê salvo com sucesso!');
+        // After saving, open the saved route in the same navigable view as feed/profile
+        if (typeof loadSavedRoute === 'function') {
+            showPage('map');
+            loadSavedRoute(routeId);
+            try { history.replaceState({}, '', window.location.pathname + '?open=' + routeId); } catch(e){}
+        }
         window._lastSavedRouteId = routeId;
         
         // Close popup only AFTER saving successfully
