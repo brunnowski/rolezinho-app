@@ -143,6 +143,33 @@
         .floating-btn input[type="file"] {
             display: none;
         }
+        .locate-btn {
+            position: fixed;
+            bottom: 165px;
+            right: 24px;
+            z-index: 1001;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: none;
+            background: #ffffff;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            color: #333;
+            cursor: pointer;
+        }
+        .locate-btn:active {
+            transform: scale(0.94);
+        }
+        @media (max-width:600px){
+            .locate-btn {
+                bottom: 148px;
+                right: 16px;
+            }
+        }
         /* Auth modal */
 #auth-modal { display:none; position:fixed; left:0; top:0; right:0; bottom:0; z-index:2000; align-items:center; justify-content:center; background:rgba(0,0,0,0.45); }
 #auth-modal .modal-inner { width:92%; max-width:420px; background:#fff; padding:18px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); }
@@ -374,6 +401,9 @@
             <button id="add-photos-btn" class="floating-btn" title="Adicionar Fotos">
                 <i class="fa fa-camera"></i>
                 <input type="file" accept="image/*,video/*" multiple id="photo-upload-input">
+            </button>
+            <button id="locate-btn" class="locate-btn" title="Minha localização">
+                <i class="fa fa-location-crosshairs"></i>
             </button>
         </div>
         <div id="profile-page" style="display:none; padding:16px; overflow-y:auto;"></div>
@@ -678,6 +708,36 @@ let pendingSave = null;
             waypoints = allExif.map(ex=>({lat: ex.lat, lng: ex.lng}));
             plotWaypointsAndRoute(allExif);
         });
+
+        // --- LOCATE BUTTON ---
+        const locateBtn = document.getElementById('locate-btn');
+        if (locateBtn) {
+            locateBtn.onclick = async () => {
+                if (!navigator.geolocation) {
+                    alert("GPS não suportado neste dispositivo.");
+                    return;
+                }
+
+                try {
+                    map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
+
+                    map.on('locationfound', (e) => {
+                        L.circleMarker(e.latlng, {
+                            radius: 9,
+                            color: "#1e88e5",
+                            fillColor: "#1e88e5",
+                            fillOpacity: 0.95
+                        }).addTo(map);
+                    });
+
+                    map.on('locationerror', (e) => {
+                        alert("Não foi possível obter sua localização. Ative o GPS nas configurações.");
+                    });
+                } catch (err) {
+                    alert("Erro ao acessar sua localização.");
+                }
+            };
+        }
 
         async function plotWaypointsAndRoute(exifArr) {
             if (map && map.closePopup) {
