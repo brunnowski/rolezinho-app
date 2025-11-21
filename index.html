@@ -37,15 +37,17 @@
             border-top-left-radius: 28px;
             border-top-right-radius: 28px;
         }
-#home-page {
+        #home-page {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 90px;
 }
         #feed-container {
-            max-height: calc(100dvh - 70px);
+            min-height: 100dvh;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            padding-bottom: 90px;
         }
         .bottom-menu button {
             background: none;
@@ -234,18 +236,96 @@
             gap:10px;
             overflow: hidden;
         }
-        .feed-user-row { display:flex; align-items:center; gap:10px; }
-        .feed-avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 40px; }
-        .feed-username { font-weight:700; font-size:14px; color:#111827; }
-        .feed-time { font-size:12px; color:#8892a6; }
-        .feed-title { font-size:16px; margin-top:6px; font-weight:700; color:#0f1724; }
-        .feed-map-img { width:100%; height:170px; object-fit:cover; border-radius:10px; margin-top:8px; }
-        .feed-metrics { display:flex; justify-content:space-between; margin-top:10px; gap:8px; }
-        .feed-metric-box { flex:1; text-align:center; background:transparent; }
-        .feed-metric-label { font-size:12px; color:#8892a6; }
-        .feed-metric-value { font-size:14px; font-weight:700; color:#0f1724; }
-        .feed-actions { display:flex; justify-content:space-between; margin-top:10px; }
-        .feed-actions button { border:none; background:none; font-size:13px; color:#475569; display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; }
+
+        /* === FEED — MOBILE FIRST IMPROVEMENTS === */
+        .feed-card {
+          background:#fff;
+          border-radius:16px;
+          padding:14px;
+          box-shadow:0 2px 10px rgba(0,0,0,0.06);
+          display:flex;
+          flex-direction:column;
+          gap:12px;
+          width:100%;
+          box-sizing:border-box;
+        }
+
+        .feed-user-row {
+          display:flex;
+          align-items:center;
+          gap:12px;
+        }
+
+        .feed-username {
+          font-weight:700;
+          font-size:15px;
+        }
+
+        .feed-time {
+          font-size:12px;
+          color:#777;
+        }
+
+        .feed-map-img {
+          width:100%;
+          height:200px;
+          object-fit:cover;
+          border-radius:14px;
+        }
+
+        .feed-title {
+          font-size:16px;
+          font-weight:700;
+          color:#111;
+        }
+
+        .feed-metrics {
+          display:flex;
+          justify-content:space-between;
+          background:#fafafa;
+          padding:10px;
+          border-radius:12px;
+        }
+
+        .feed-metric-box {
+          flex:1;
+          text-align:center;
+        }
+
+        .feed-metric-label {
+          font-size:11px;
+          color:#777;
+        }
+
+        .feed-metric-value {
+          font-size:14px;
+          font-weight:700;
+        }
+
+        .feed-actions {
+          display:flex;
+          justify-content:space-between;
+          margin-top:10px;
+        }
+
+        .feed-actions button {
+          background:none;
+          border:none;
+          font-size:14px;
+          display:flex;
+          align-items:center;
+          gap:6px;
+          color:#444;
+          padding:8px;
+        }
+
+        @media(max-width:480px){
+          .feed-card { padding:12px; }
+          .feed-map-img { height:160px; }
+          .feed-title { font-size:15px; }
+          .feed-username { font-size:14px; }
+          .feed-actions button { font-size:13px; padding:6px; }
+        }
 
         /* Profile list (reuse feed card tokens but horizontal) */
         .route-list { padding: 12px; display:flex; flex-direction:column; gap:12px; }
@@ -483,7 +563,7 @@
     <div id="app-content">
         <div id="home-page" style="display:block; height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; overscroll-behavior:contain;">
           <div id="feed-container"
-               style="padding:16px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; height:calc(100dvh - 70px); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;">
+               style="padding:16px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; min-height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding-bottom:90px;">
           </div>
         </div>
         <div id="map-page" style="display:none;">
@@ -632,16 +712,8 @@
                 return;
             }
 
-            // Not logged in → show static home screen with logo + message
-            showPage('home');
-            document.getElementById('feed-container').innerHTML = `
-                <div style="text-align:center; padding:40px;">
-                    <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
-                    <p style="font-size:18px; color:#444; margin-top:10px;">
-                        Entre para ver os rolês da comunidade.
-                    </p>
-                </div>
-            `;
+            // Not logged in → always show map
+            showPage('map'); // always map when not logged in
         };
 
         document.getElementById('nav-map').onclick = () => {
@@ -672,9 +744,10 @@
           const user = await getCurrentUser();
 
           if (user) {
-              showPage('map');
+              showPage('home');
               loadHomeFeed();
           } else {
+              // First access → ALWAYS go to MAP
               showPage('map');
               document.getElementById('feed-container').innerHTML = `
                   <div style="text-align:center; padding:40px;">
@@ -863,17 +936,25 @@ disableThumbnailReorder();
                         : undefined;
                 const marker = L.marker([ex.lat, ex.lng], icon ? { icon } : undefined)
                     .bindPopup(`
-                        <div style="min-width:180px">
-                          <label style="font-size:13px;color:#555">Título:</label>
-                          <input type="text" class="popup-title-input" value="${ex.name}" 
+                        <div style="min-width:200px; text-align:center;">
+                          <label style="font-size:13px;color:#555;display:block;text-align:left;">Título:</label>
+                          <input type="text" class="popup-title-input"
+                                 value="${ex.name}"
                                  style="width:100%;padding:6px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
-                          <label style="font-size:13px;color:#555">Descrição:</label>
-                          <textarea class="popup-desc-input" 
+                          <label style="font-size:13px;color:#555;display:block;text-align:left;">Descrição:</label>
+                          <textarea class="popup-desc-input"
                                     style="width:100%;height:60px;padding:6px;border:1px solid #ccc;border-radius:6px;resize:none;"></textarea>
-                          <button class="popup-save-btn" 
-                                  style="margin-top:8px;width:100%;padding:8px;background:#1e88e5;color:#fff;border:none;border-radius:6px;">
-                            Salvar
-                          </button>
+
+                          <div style="display:flex;justify-content:space-between;margin-top:10px;">
+                            <button class="popup-prev" data-idx="${idx}"
+                                    style="padding:6px 10px;border:none;border-radius:6px;background:#eee;">◀</button>
+                            <button class="popup-save-btn"
+                                    style="padding:6px 10px;border:none;border-radius:6px;background:#1e88e5;color:#fff;">
+                              Salvar
+                            </button>
+                            <button class="popup-next" data-idx="${idx}"
+                                    style="padding:6px 10px;border:none;border-radius:6px;background:#eee;">▶</button>
+                          </div>
                         </div>
                     `);
                 marker.addTo(markersLayer);
@@ -889,21 +970,48 @@ disableThumbnailReorder();
                 }
             });
 
-            // Attach popup save event
+            // Attach unified popup handler with prev/next navigation
             map.on('popupopen', (e) => {
-                if (document.getElementById('save-rolê-container').style.display === 'none') {
-                  const popupEl = e.popup._contentNode;
-                  const marker = e.popup._source;
-                  const titleInput = popupEl.querySelector('.popup-title-input');
-                  const descInput = popupEl.querySelector('.popup-desc-input');
-                  const saveBtn = popupEl.querySelector('.popup-save-btn');
-                  if (saveBtn) {
-                      saveBtn.onclick = () => {
-                          marker._exif.name = titleInput.value.trim();
-                          marker._exif.description = descInput.value.trim();
-                          alert('Informações atualizadas!');
-                      };
-                  }
+                const popup = e.popup._contentNode;
+                const marker = e.popup._source;
+                const idx = markers.indexOf(marker);
+                if (idx < 0) return;
+
+                const prevBtn = popup.querySelector('.popup-prev');
+                const nextBtn = popup.querySelector('.popup-next');
+                const saveBtn = popup.querySelector('.popup-save-btn');
+                const titleInput = popup.querySelector('.popup-title-input');
+                const descInput = popup.querySelector('.popup-desc-input');
+
+                if (saveBtn) {
+                  saveBtn.onclick = () => {
+                    marker._exif.name = titleInput.value.trim();
+                    marker._exif.description = descInput.value.trim();
+                    alert("Informações atualizadas!");
+                  };
+                }
+
+                function goTo(targetIdx){
+                  const m = markers[targetIdx];
+                  if (!m) return;
+                  map.panTo(m.getLatLng(), { animate:true });
+                  setTimeout(()=>{ m.openPopup(); setTimeout(()=> m.update(), 35); }, 120);
+                }
+
+                if (prevBtn) {
+                  prevBtn.onclick = (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    goTo((idx - 1 + markers.length) % markers.length);
+                  };
+                }
+
+                if (nextBtn) {
+                  nextBtn.onclick = (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    goTo((idx + 1) % markers.length);
+                  };
                 }
             });
 
@@ -1052,49 +1160,58 @@ async function loadSavedRoute(routeId) {
   // popupopen handler: wire prev/next and update image (stable closure)
   map.off('popupopen');
   map.on('popupopen', (e) => {
-    const marker = e.popup._source;
-    const idx = markers.indexOf(marker);
-    const popup = e.popup._contentNode;
-    if (!popup) return;
+      const marker = e.popup._source;
+      const idx = markers.indexOf(marker);
+      const popup = e.popup._contentNode;
+      if (!popup || idx < 0) return;
 
-    L.DomEvent.disableClickPropagation(popup);
+      L.DomEvent.disableClickPropagation(popup);
 
-    const imgEl = popup.querySelector('img');
-    if (imgEl) {
-      const match = data.photos?.find(p => p.order === idx);
-      imgEl.src = match?.url || '';
-    }
+      const imgEl = popup.querySelector('img');
+      if (imgEl) {
+        const match = data.photos?.find(p => p.order === idx);
+        imgEl.src = match?.url || '';
+      }
 
-    const prevBtn = popup.querySelector('.popup-prev');
-    const nextBtn = popup.querySelector('.popup-next');
+      const prevBtn = popup.querySelector('.popup-prev');
+      const nextBtn = popup.querySelector('.popup-next');
 
-    if (prevBtn) {
-      prevBtn.onclick = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const targetIdx = (idx - 1 + markers.length) % markers.length;
-        const targetMarker = markers[targetIdx];
-        map.panTo(targetMarker.getLatLng(), { animate: true });
+      // --- REPLACEMENT LOGIC START ---
+      function getIndex(m) {
+        return markers.findIndex(x => x === m);
+      }
+
+      function goToIndex(newIdx) {
+        const target = markers[newIdx];
+        if (!target) return;
+        const latlng = target.getLatLng();
+        map.panTo(latlng, { animate: true });
         setTimeout(() => {
-          targetMarker.openPopup();
-          setTimeout(() => targetMarker.update(), 40);
+          target.openPopup();
+          setTimeout(() => target.update(), 35);
         }, 120);
-      };
-    }
+      }
 
-    if (nextBtn) {
-      nextBtn.onclick = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const targetIdx = (idx + 1) % markers.length;
-        const targetMarker = markers[targetIdx];
-        map.panTo(targetMarker.getLatLng(), { animate: true });
-        setTimeout(() => {
-          targetMarker.openPopup();
-          setTimeout(() => targetMarker.update(), 40);
-        }, 40);
-      };
-    }
+      if (prevBtn) {
+        prevBtn.onclick = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const cur = getIndex(marker);
+          const targetIdx = (cur - 1 + markers.length) % markers.length;
+          goToIndex(targetIdx);
+        };
+      }
+
+      if (nextBtn) {
+        nextBtn.onclick = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const cur = getIndex(marker);
+          const targetIdx = (cur + 1) % markers.length;
+          goToIndex(targetIdx);
+        };
+      }
+      // --- REPLACEMENT LOGIC END ---
   });
 
   // If only one point, center and open popup
@@ -1767,9 +1884,9 @@ async function loadUserRoutes() {
                     <div class="feed-metric-box"><div class="feed-metric-label">Pontos</div><div class="feed-metric-value">${route.photos?.length || 0}</div></div>
                 </div>
                 <div class="feed-actions">
-                    <button class="feed-like"><i class="fa fa-heart"></i> 24</button>
-                    <button class="feed-comment"><i class="fa fa-comment"></i> 5</button>
-                    <button class="feed-share"><i class="fa fa-share"></i></button>
+                  <button class="feed-like"><i class="fa fa-heart"></i> Curtir</button>
+                  <button class="feed-comment"><i class="fa fa-comment"></i> Comentar</button>
+                  <button class="feed-share"><i class="fa fa-share"></i> Compartilhar</button>
                 </div>
             </div>`;
         }).join('');
