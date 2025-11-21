@@ -7,14 +7,20 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
     <style>
+        #map .leaflet-popup {
+            display: none !important;
+        }
         html, body {
             margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;
             background: #f4f8fb;
             font-family: 'Segoe UI', Arial, sans-serif;
         }
         #app-content {
-            height: calc(100dvh - 65px);
-            padding-bottom: 65px;
+            position: relative;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            padding: 0;
             box-sizing: border-box;
         }
         .bottom-menu {
@@ -50,43 +56,48 @@
         }
         /* MAP PAGE */
         #map {
-            height: calc(100dvh - 65px);
-            width: 100vw;
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 100%;
+            width: 100%;
             z-index: 1;
         }
         /* Thumbnail carousel - mobile first */
         #thumb-carousel {
             position: fixed;
-            left: 50%; transform: translateX(-50%);
-            bottom: 150px;
-            max-width: 600px;
-            width: 90%;
-            height: 86px;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 140px;
+            width: 92vw;
+            max-width: 520px;
+            height: auto;
+            min-height: 72px;
+            padding: 8px 10px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 8px 12px;
+            gap: 6px;
             box-sizing: border-box;
             z-index: 1002;
             pointer-events: none;
         }
         .thumbs {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             padding: 6px 0;
-            flex: 1 1 auto;
+            flex: 1;
             scroll-snap-type: x mandatory;
             pointer-events: auto;
         }
         .thumbs::-webkit-scrollbar{ height:8px }
         .thumb {
             flex: 0 0 auto;
-            width: 56px;
-            height: 56px;
+            width: 52px;
+            height: 52px;
             border-radius: 10px;
             background: #ffffff;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
@@ -147,24 +158,57 @@
             font-size: 2em;
             color: #444;
         }
+        /* Feed & Profile (Figma-like responsive card styles) */
         .feed-card {
-            background:#fff; border-radius:16px; padding:14px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.06);
+            background: linear-gradient(180deg,#ffffff,#fbfdff);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 6px 18px rgba(17,24,39,0.06);
+            display: flex;
+            flex-direction: column;
+            gap:10px;
+            overflow: hidden;
         }
-        .feed-user-row { display:flex; align-items:center; gap:12px; }
-        .feed-avatar { width:42px; height:42px; border-radius:50%; object-fit:cover; }
-        .feed-username { font-weight:600; font-size:15px; }
-        .feed-time { font-size:12px; color:#777; }
-        .feed-map-img { width:100%; height:170px; object-fit:cover; border-radius:12px; margin-top:12px; }
-        .feed-title { font-size:16px; margin-top:10px; font-weight:600; }
-        .feed-metrics { display:flex; justify-content:space-between; margin-top:12px; }
-        .feed-metric-box { text-align:center; }
-        .feed-metric-label { font-size:12px; color:#777; }
-        .feed-metric-value { font-size:15px; font-weight:600; }
-        .feed-actions { display:flex; justify-content:space-between; margin-top:12px; }
-        .feed-actions button {
-            border:none; background:none; font-size:14px;
-            color:#555; display:flex; align-items:center; gap:6px;
+        .feed-user-row { display:flex; align-items:center; gap:10px; }
+        .feed-avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 40px; }
+        .feed-username { font-weight:700; font-size:14px; color:#111827; }
+        .feed-time { font-size:12px; color:#8892a6; }
+        .feed-title { font-size:16px; margin-top:6px; font-weight:700; color:#0f1724; }
+        .feed-map-img { width:100%; height:170px; object-fit:cover; border-radius:10px; margin-top:8px; }
+        .feed-metrics { display:flex; justify-content:space-between; margin-top:10px; gap:8px; }
+        .feed-metric-box { flex:1; text-align:center; background:transparent; }
+        .feed-metric-label { font-size:12px; color:#8892a6; }
+        .feed-metric-value { font-size:14px; font-weight:700; color:#0f1724; }
+        .feed-actions { display:flex; justify-content:space-between; margin-top:10px; }
+        .feed-actions button { border:none; background:none; font-size:13px; color:#475569; display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; }
+
+        /* Profile list (reuse feed card tokens but horizontal) */
+        .route-list { padding: 12px; display:flex; flex-direction:column; gap:12px; }
+        .route-card { display:flex; gap:12px; align-items:center; background:#fff; border-radius:12px; padding:10px; box-shadow:0 3px 12px rgba(2,6,23,0.06); }
+        .route-thumb { width:72px; height:72px; object-fit:cover; border-radius:10px; flex:0 0 72px; }
+        .route-info { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .route-title-input { font-size:15px; font-weight:700; border:none; background:transparent; padding:0; width:100%; box-sizing:border-box; color:#0f1724; }
+        .route-date { font-size:12px; color:#6b7280; }
+        .route-actions { display:flex; gap:8px; margin-top:6px; }
+        .route-actions button { padding:6px 10px; font-size:13px; border-radius:8px; border:none; cursor:pointer; }
+        .route-open-btn { background:#1e88e5; color:#fff; }
+        .route-share-btn { background:#10b981; color:#fff; }
+
+        @media (max-width:480px){
+          .feed-card { padding:12px; border-radius:12px; }
+          .feed-avatar { width:36px; height:36px; }
+          .feed-username { font-size:13px; }
+          .feed-time { font-size:11px; }
+          .feed-title { font-size:15px; }
+          .feed-map-img { height:140px; border-radius:10px; }
+          .feed-metric-label { font-size:11px; }
+          .feed-metric-value { font-size:13px; }
+
+          .route-card { padding:8px; }
+          .route-thumb { width:64px; height:64px; }
+          .route-title-input { font-size:14px; }
+          .route-date { font-size:12px; }
+          .route-actions button { font-size:12px; padding:6px 8px; }
         }
         .route-list {
             padding: 16px;
@@ -246,11 +290,45 @@
             background: #43a047;
             color: #fff;
         }
+        @media (max-width:480px){
+          .route-card { padding:8px; border-radius:12px; }
+          .route-thumb { width:64px; height:64px; margin-right:10px; }
+          .route-title-input { font-size:15px; margin-bottom:4px; }
+          .route-date { font-size:12px; }
+          .route-actions button { font-size:12px; padding:5px 8px; }
+        }
         @media (max-width:600px) {
             .floating-btn { right: 12px; bottom: 78px;}
             .bottom-menu { height: 58px; }
-            #map { height: calc(100dvh - 58px); }
         }
+
+@media (min-width:600px){
+  #thumb-carousel { 
+    bottom: 180px;
+    max-width: 620px;
+    gap: 10px;
+  }
+  .thumb { 
+    width: 64px;
+    height: 64px;
+  }
+}
+@media (min-width:900px){
+  #thumb-carousel { 
+    bottom: 200px;
+    max-width: 720px;
+  }
+  .thumb {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+@media (min-width:600px) {
+  #save-rolê-container { bottom:180px; max-width:480px; }
+  #route-meta-inline { padding:18px; }
+  #route-inline-title, #route-inline-desc { font-size:17px; }
+}
 
 /* Ensure popup close button stays clickable above UI overlays */
 .leaflet-popup {
@@ -260,8 +338,21 @@
 .leaflet-popup-tip {
     z-index: 5001 !important;
 }
-.leaflet-popup-close-button {
-    z-index: 6000 !important;
+        .leaflet-popup-close-button {
+            z-index: 6000 !important;
+        }
+
+/* === Additional Mobile‑First Responsive Styles (PATCH INSERTED) === */
+@media (max-width:480px){
+  .feed-card { padding:12px; border-radius:14px; }
+  .feed-avatar { width:36px; height:36px; }
+  .feed-username { font-size:14px; }
+  .feed-time { font-size:11px; }
+  .feed-title { font-size:15px; margin-top:8px; }
+  .feed-map-img { height:150px; border-radius:12px; }
+  .feed-metric-label { font-size:11px; }
+  .feed-metric-value { font-size:14px; }
+  .feed-actions button { font-size:13px; gap:4px; }
 }
     </style>
 </head>
@@ -272,7 +363,7 @@
                style="padding:16px; display:flex; flex-direction:column; gap:18px;">
           </div>
         </div>
-        <div id="map-page" style="display:none; height:100%">
+        <div id="map-page" style="display:none; position:relative; width:100%; height:100dvh; overflow:hidden;">
             <div id="map"></div>
             <!-- THUMBNAIL CAROUSEL (mobile-first) -->
             <div id="thumb-carousel" style="display:none" aria-hidden="false">
@@ -288,46 +379,29 @@
         <div id="profile-page" style="display:none; padding:16px; overflow-y:auto;"></div>
     </div>
     <!-- SAVE ROUTE BUTTON (shows after route plotted) -->
-<div id="save-rolê-container" 
-     style="position:fixed; left:50%; transform:translateX(-50%);
-            bottom:240px; z-index:1003; display:none;
-            flex-direction:row; align-items:flex-start; gap:14px;
-            width:90%; max-width:600px;">
-  
-  <!-- Pencil Button (small) -->
-  <button id="edit-route-btn" style="flex:0 0 58px; height:58px; border-radius:16px; border:none; background:#ffffff; box-shadow:0 6px 18px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center;">
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 20h9"/>
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-    </svg>
-  </button>
+<div id="save-rolê-container"
+     style="position:fixed; top:12%; left:0; right:0; margin:auto; z-index:1003; display:none; flex-direction:column; align-items:center; gap:10px; width:90%; max-width:280px;">
 
-  <!-- Main Title+Desc + Save Wrapped Together -->
-  <div style="flex:1; display:flex; flex-direction:column; gap:16px;">
-      
+  <div style="flex:1; display:flex; flex-direction:column; gap:14px;">
+
       <div id="route-meta-inline" 
-           style="width:100%; max-width:600px; margin:0 auto;
-                  display:flex; flex-direction:column;
-                  gap:14px; padding:18px;
-                  background:#ffffff; border-radius:18px;
-                  box-shadow:0 6px 20px rgba(0,0,0,0.12);">
+           style="width:100%; display:flex; flex-direction:column; gap:8px; padding:10px; background:#ffffff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.10); overflow:hidden; max-width:100%;">
+
         <input id="route-inline-title" type="text"
-            placeholder="Dê um nome ao seu Rolê (Ex: Sunset na Paulista)"
-            style="width:100%; padding:16px 16px; border-radius:14px; border:1px solid #cfd5dc; font-size:17px; font-weight:600; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+            placeholder="Dê um nome ao seu Rolê"
+            style="width:100%; max-width:100%; box-sizing:border-box; padding:10px; border-radius:10px; border:1px solid #d5dbe1; font-size:15px; font-weight:600;">
 
         <textarea id="route-inline-desc"
-            placeholder="Conte um pouco sobre a experiência e dicas."
-            style="width:100%; height:120px; padding:16px 16px; border-radius:14px; border:1px solid #cfd5dc; font-size:16px; resize:none; line-height:1.45; box-shadow:0 2px 5px rgba(0,0,0,0.05);"></textarea>
+            placeholder="Conte sobre a experiência..."
+            style="width:100%; max-width:100%; box-sizing:border-box; height:80px; padding:10px; border-radius:10px; border:1px solid #d5dbe1; font-size:14px; line-height:1.45; resize:none;"></textarea>
       </div>
 
       <button id="save-route-btn"
-        style="width:100%; max-width:600px; margin:0 auto;
-               padding:18px 24px; border-radius:18px; border:none;
-               background:#1e88e5; color:#fff; font-size:18px; font-weight:600;
-               box-shadow:0 10px 26px rgba(30,136,229,0.25);
-               display:flex; align-items:center; justify-content:center; gap:10px;"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        style="width:100%; padding:12px; border-radius:14px; border:none;
+       background:#1e88e5; color:#fff; font-size:16px; font-weight:600;
+       box-shadow:0 5px 16px rgba(30,136,229,0.20);
+       display:flex; align-items:center; justify-content:center; gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
           <polyline points="17 21 17 13 7 13 7 21"/>
           <polyline points="7 3 7 8 15 8"/>
@@ -335,7 +409,9 @@
         Salvar
       </button>
 
+    
   </div>
+</div>
 
 </div>
     <nav class="bottom-menu">
@@ -412,8 +488,11 @@
             if (page === 'profile') document.getElementById('nav-profile').classList.add('active');
 
             // Re-render map if switching to map
-            if (page === 'map' && typeof renderMap === 'function') {
-                setTimeout(renderMap, 150);
+            if (page === 'map') {
+                if (typeof renderMap === 'function') renderMap();
+                if (typeof map !== "undefined" && map.invalidateSize) {
+                    setTimeout(()=> map.invalidateSize(), 150);
+                }
             }
         }
 
@@ -548,6 +627,12 @@ let pendingSave = null;
             setTimeout(()=>{ map.invalidateSize(); }, 80);
         }
 
+        window.addEventListener("resize", ()=>{
+            if (typeof map !== "undefined" && map.invalidateSize) {
+                setTimeout(()=> map.invalidateSize(), 150);
+            }
+        });
+
         // --- FLOATING BUTTON -- 
         const addPhotosBtn = document.getElementById('add-photos-btn');
         const photoInput = document.getElementById('photo-upload-input');
@@ -595,18 +680,21 @@ let pendingSave = null;
         });
 
         async function plotWaypointsAndRoute(exifArr) {
+            if (map && map.closePopup) {
+                map.closePopup();
+            }
             document.getElementById('thumb-carousel').style.display = 'none';
             setSaveButtonVisible(false);
             if (!map) renderMap();
             routeLayer.clearLayers();
             markersLayer.clearLayers();
-            editingRoute = false;
+            
 disableThumbnailReorder();
             // clear old markers and revoke object urls
             markers.forEach(m=>{ if(m._thumbUrl){ URL.revokeObjectURL(m._thumbUrl); } });
             markers = [];
             setSaveButtonVisible(false);
-editingRoute = false;
+
 disableThumbnailReorder();
             // Place markers and collect marker objects
             exifArr.forEach((ex, idx)=>{
@@ -637,25 +725,29 @@ disableThumbnailReorder();
                 markers.push(marker);
 
                 // when marker clicked open the corresponding thumbnail (centered)
-                marker.on('click', ()=>{
+                if (document.getElementById('save-rolê-container').style.display === 'none') {
+                  marker.on('click', () => {
                     const i = markers.indexOf(marker);
-                    if(i>=0) openThumbnailAt(i);
-                });
+                    if (i >= 0) openThumbnailAt(i);
+                  });
+                }
             });
 
             // Attach popup save event
             map.on('popupopen', (e) => {
-                const popupEl = e.popup._contentNode;
-                const marker = e.popup._source;
-                const titleInput = popupEl.querySelector('.popup-title-input');
-                const descInput = popupEl.querySelector('.popup-desc-input');
-                const saveBtn = popupEl.querySelector('.popup-save-btn');
-                if (saveBtn) {
-                    saveBtn.onclick = () => {
-                        marker._exif.name = titleInput.value.trim();
-                        marker._exif.description = descInput.value.trim();
-                        alert('Informações atualizadas!');
-                    };
+                if (document.getElementById('save-rolê-container').style.display === 'none') {
+                  const popupEl = e.popup._contentNode;
+                  const marker = e.popup._source;
+                  const titleInput = popupEl.querySelector('.popup-title-input');
+                  const descInput = popupEl.querySelector('.popup-desc-input');
+                  const saveBtn = popupEl.querySelector('.popup-save-btn');
+                  if (saveBtn) {
+                      saveBtn.onclick = () => {
+                          marker._exif.name = titleInput.value.trim();
+                          marker._exif.description = descInput.value.trim();
+                          alert('Informações atualizadas!');
+                      };
+                  }
                 }
             });
 
@@ -703,6 +795,7 @@ disableThumbnailReorder();
             setSaveButtonVisible(true);
             const thumbs = document.getElementById('thumbs');
             thumbs.innerHTML = '';
+            enableThumbnailReorder();
             exifArr.forEach((ex, idx)=>{
                 const url = URL.createObjectURL(ex.file);
                 const el = document.createElement('div');
@@ -845,7 +938,6 @@ async function loadSavedRoute(routeId) {
 
   document.getElementById('thumb-carousel').style.display = 'none';
 }
-let editingRoute = false;
 
 function enableThumbnailReorder(){
   const thumbs = document.getElementById('thumbs').children;
@@ -865,6 +957,7 @@ function enableThumbnailReorder(){
       parent.insertBefore(moved, nodes[to]);
       const newOrder = [...parent.children].map(n=> markers[Number(n.dataset.index)]._exif);
       markers = markers.sort((a,b)=> newOrder.indexOf(a._exif) - newOrder.indexOf(b._exif));
+   
     };
   });
 }
@@ -892,7 +985,6 @@ function disableThumbnailReorder(){
             const thumbs = document.querySelectorAll('.thumb');
             thumbs.forEach(t=> t.classList.toggle('active', Number(t.dataset.index)===idx));
             // scroll into view center
-            scrollThumbIntoView(idx);
             // center map so popup shows centered on screen
             const marker = markers[idx];
             if(marker){
@@ -905,13 +997,17 @@ function disableThumbnailReorder(){
                 const targetPoint = map.containerPointToLatLng(markerPoint.subtract(delta));
                 map.panTo(targetPoint, {animate:true});
                 marker.openPopup();
+                setTimeout(()=> marker.update(), 40);
+                scrollThumbIntoView(idx);
             }
         }
 
         function scrollThumbIntoView(idx){
             const el = document.querySelector(`.thumb[data-index="${idx}"]`);
-            if(el){
-                el.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+            if (el) {
+                const container = document.getElementById("thumbs");
+                const offset = el.offsetLeft - (container.clientWidth / 2) + (el.clientWidth / 2);
+                container.scrollTo({ left: offset, behavior: "smooth" });
             }
         }
 
@@ -1039,7 +1135,7 @@ if (typeof map !== "undefined" && map.closePopup) {
         document.getElementById('route-inline-desc').value = description || "";
         // hide Save UI
         setSaveButtonVisible(false);
-        editingRoute = false;
+
         disableThumbnailReorder();
     } catch(e){
         console.error(e);
@@ -1095,35 +1191,6 @@ document.getElementById('save-route-btn').addEventListener('click', async () => 
     showAuthModal();
 });
 
-// EDIT ROUTE BUTTON HANDLER
-const editBtn = document.getElementById('edit-route-btn');
-editBtn.addEventListener('click', ()=>{
-  editingRoute = !editingRoute;
-
-  // Disable nav buttons when editing route
-  const homeBtn = document.getElementById('nav-home');
-  const profileBtn = document.getElementById('nav-profile');
-
-  if (editingRoute) {
-      homeBtn.style.pointerEvents = "none";
-      profileBtn.style.pointerEvents = "none";
-      homeBtn.style.opacity = "0.35";
-      profileBtn.style.opacity = "0.35";
-  } else {
-      homeBtn.style.pointerEvents = "";
-      profileBtn.style.pointerEvents = "";
-      homeBtn.style.opacity = "";
-      profileBtn.style.opacity = "";
-  }
-
-  if(editingRoute){
-    enableThumbnailReorder();
-    editBtn.style.background = '#ffe28a';
-  } else {
-    disableThumbnailReorder();
-    editBtn.style.background = '#ffffff';
-  }
-});
 
 // Auth modal controls (signup / login)
 // EVENT DELEGATION for dynamic modal buttons
@@ -1314,127 +1381,109 @@ async function loadUserRoutes() {
     });
 }
     </script>
-</div>
+    </script>
 
+    <script>
+    // ---- FEED (home page) - consolidated and moved inside the document ----
+    async function loadHomeFeed() {
+        await window.waitForSupabase();
+        const feed = document.getElementById("feed-container");
+        feed.innerHTML = "<p style='text-align:center;color:#777'>Carregando feed...</p>";
+
+        const user = await getCurrentUser();
+        if (!user) {
+            feed.innerHTML = `
+                <div style="text-align:center; padding:40px;">
+                    <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
+                    <p style="font-size:18px; color:#444; margin-top:10px;">Entre para ver seus rolês.</p>
+                </div>`;
+            return;
+        }
+
+        // Load routes (mix my routes and others randomly if desired)
+        const { data: routes, error: routesError } = await getSupa()
+            .from('routes')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (routesError) {
+            console.error(routesError);
+            feed.innerHTML = "<p>Erro ao carregar feed</p>";
+            return;
+        }
+
+        if (!routes || !routes.length) {
+            feed.innerHTML = "<p style='padding:20px;text-align:center;'>Nenhum rolê encontrado.</p>";
+            return;
+        }
+
+        // Load profiles for the routes shown
+        const ids = [...new Set(routes.map(r => r.user_id))];
+        let profiles = [];
+        try{
+            const resp = await getSupa().from('profiles').select('*').in('id', ids);
+            if (resp.error) throw resp.error;
+            profiles = resp.data || [];
+        }catch(e){ console.warn('profiles load failed', e); }
+
+        const profileMap = {};
+        profiles.forEach(p => { profileMap[p.id] = p; });
+
+        // Attach profile and render
+        const html = routes.map(route => {
+            const userProfile = profileMap[route.user_id];
+            const userName = userProfile?.name || 'Usuário';
+            const userAvatar = userProfile?.photo_url || 'https://i.pravatar.cc/100';
+            const coverPhoto = route.photos?.[0]?.url || '';
+            const timeAgo = timeSince(new Date(route.created_at));
+
+            return `
+            <div class="feed-card" data-route-id="${route.route_id}">
+                <div class="feed-user-row">
+                    <img class="feed-avatar" src="${userAvatar}">
+                    <div>
+                        <div class="feed-username">${userName}</div>
+                        <div class="feed-time">${timeAgo}</div>
+                    </div>
+                </div>
+                <div class="feed-title">${route.title || 'Meu rolê'}</div>
+                <img class="feed-map-img" src="${coverPhoto}" />
+                <div class="feed-metrics">
+                    <div class="feed-metric-box"><div class="feed-metric-label">Distância</div><div class="feed-metric-value">—</div></div>
+                    <div class="feed-metric-box"><div class="feed-metric-label">Tempo</div><div class="feed-metric-value">—</div></div>
+                    <div class="feed-metric-box"><div class="feed-metric-label">Pontos</div><div class="feed-metric-value">${route.photos?.length || 0}</div></div>
+                </div>
+                <div class="feed-actions">
+                    <button class="feed-like"><i class="fa fa-heart"></i> 24</button>
+                    <button class="feed-comment"><i class="fa fa-comment"></i> 5</button>
+                    <button class="feed-share"><i class="fa fa-share"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+
+        feed.innerHTML = html;
+
+        // wire interactions
+        document.querySelectorAll('.feed-card').forEach(card => {
+            card.onclick = () => {
+                const id = card.dataset.routeId;
+                // open in map
+                history.replaceState({}, '', window.location.pathname + '?open=' + id);
+                showPage('map');
+                loadSavedRoute(id);
+            };
+        });
+    }
+
+    function timeSince(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        const intervals = [ { label:'h', seconds:3600 }, { label:'min', seconds:60 } ];
+        for (const it of intervals) {
+            const v = Math.floor(seconds / it.seconds);
+            if (v >= 1) return `${v} ${it.label} atrás`;
+        }
+        return 'agora';
+    }
+    </script>
 </body>
 </html>
-    <script>
-﻿// ---- FEED (home page) -----
-async function loadHomeFeed() {
-    await window.waitForSupabase();
-    const feed = document.getElementById("feed-container");
-    feed.innerHTML = "<p style='text-align:center;color:#777'>Carregando feed...</p>";
-
-    const user = await getCurrentUser();
-    if (!user) {
-        feed.innerHTML = `
-            <div style="text-align:center; padding:40px;">
-                <img src="logo.png" style="width:140px; opacity:0.95; margin-bottom:20px;">
-                <p style="font-size:18px; color:#444; margin-top:10px;">
-                    Entre para ver seus rolês.
-                </p>
-            </div>`;
-        return;
-    }
-
-    // 1) Load all routes
-    const { data: routes, error: routesError } = await getSupa()
-        .from('routes')
-        .select('*')
-        .order('created_at', { ascending:false });
-
-    if (routesError) {
-        console.error(routesError);
-        feed.innerHTML = "<p>Erro ao carregar feed</p>";
-        return;
-    }
-
-    if (!routes || !routes.length) {
-        feed.innerHTML = "<p style='padding:20px;text-align:center;'>Nenhum rolê encontrado.</p>";
-        return;
-    }
-
-    // 2) Load all related profiles
-    const ids = [...new Set(routes.map(r => r.user_id))];
-    const { data: profiles } = await getSupa()
-        .from('profiles')
-        .select('*')
-        .in('id', ids);
-
-    const profileMap = {};
-    profiles?.forEach(p => { profileMap[p.id] = p; });
-
-    // 3) Attach profile to each route
-    routes.forEach(route => {
-        const userProfile = profileMap[route.user_id];
-        route.profiles = userProfile ? {
-            name: userProfile.name,
-            photo_url: userProfile.photo_url
-        } : {
-            name: "Usuário",
-            photo_url: "https://i.pravatar.cc/150"
-        };
-    });
-
-    const data = routes;
-
-    feed.innerHTML = data.map(route => {
-        const userName = route.profiles?.name || "Usuário";
-        const userAvatar = route.profiles?.photo_url || "https://i.pravatar.cc/100";
-        const coverPhoto = route.photos?.[0]?.url || "";
-        const timeAgo = timeSince(new Date(route.created_at));
-
-        return `
-        <div class="feed-card" data-route-id="${route.route_id}">
-            <div class="feed-user-row">
-                <img class="feed-avatar" src="${userAvatar}">
-                <div>
-                    <div class="feed-username">${userName}</div>
-                    <div class="feed-time">${timeAgo}</div>
-                </div>
-            </div>
-            <div class="feed-title">${route.title || "Meu rolê"}</div>
-            <img class="feed-map-img" src="${coverPhoto}" />
-            <div class="feed-metrics">
-                <div class="feed-metric-box">
-                    <div class="feed-metric-label">Distância</div>
-                    <div class="feed-metric-value">—</div>
-                </div>
-                <div class="feed-metric-box">
-                    <div class="feed-metric-label">Tempo</div>
-                    <div class="feed-metric-value">—</div>
-                </div>
-                <div class="feed-metric-box">
-                    <div class="feed-metric-label">Pontos</div>
-                    <div class="feed-metric-value">${route.photos?.length || 0}</div>
-                </div>
-            </div>
-            <div class="feed-actions">
-                <button class="feed-like"><i class="fa fa-heart"></i> 24</button>
-                <button class="feed-comment"><i class="fa fa-comment"></i> 5</button>
-                <button class="feed-share"><i class="fa fa-share"></i></button>
-            </div>
-        </div>`;
-    }).join('');
-
-    document.querySelectorAll('.feed-card').forEach(card => {
-        card.onclick = () => {
-            const id = card.dataset.routeId;
-            window.location.href = `?open=${id}`;
-        };
-    });
-}
-
-function timeSince(date) {
-    const seconds = Math.floor((new Date() - date) / 1000);
-    const intervals = [
-        { label:'h', seconds:3600 },
-        { label:'min', seconds:60 }
-    ];
-    for (const it of intervals) {
-        const v = Math.floor(seconds / it.seconds);
-        if (v >= 1) return `${v} ${it.label} atrás`;
-    }
-    return "agora";
-}
-    </script>
