@@ -1394,8 +1394,8 @@ async function loadUserRoutes() {
     }
 
     // If no routes, still show profile header
+    const container = document.getElementById('profile-page');
     if (!data.length) {
-        const container = document.getElementById('profile-page');
         container.innerHTML = `
     <div id="profile-header" style="width:100%;padding:24px 0;border-radius:0 0 24px 24px;background:linear-gradient(135deg,#FF6B00,#FF3D00);color:white;display:flex;flex-direction:column;align-items:center;text-align:center;">
       <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;">
@@ -1423,12 +1423,9 @@ async function loadUserRoutes() {
       <div style="padding:20px; font-size:18px;">Você ainda não salvou nenhum rolê.</div>
     </div>
   `;
-        return;
-    }
-
-    // Otherwise, render new profile layout and activity cards
-    const container = document.getElementById('profile-page');
-    container.innerHTML = `
+    } else {
+        // Otherwise, render new profile layout and activity cards
+        container.innerHTML = `
     <div id="profile-header" style="width:100%;padding:24px 0;border-radius:0 0 24px 24px;background:linear-gradient(135deg,#FF6B00,#FF3D00);color:white;display:flex;flex-direction:column;align-items:center;text-align:center;">
       <img id="profile-avatar" src="${avatar}" style="width:86px;height:86px;border-radius:50%;border:4px solid rgba(255,255,255,0.65);object-fit:cover;">
       <h2 style="margin:10px 0 4px 0;font-size:20px;font-weight:700;">${username}</h2>
@@ -1453,39 +1450,84 @@ async function loadUserRoutes() {
 
     <div id="profile-content" style="padding:12px;display:flex;flex-direction:column;gap:14px;"></div>
   `;
+    }
 
-    // Render activity cards (Figma style) into #profile-content
+    // --- TAB SWITCHING LOGIC ---
     const profileContent = container.querySelector('#profile-content');
-    profileContent.innerHTML = '';
-    data.forEach(route => {
+    const tabActivities = container.querySelector('#tab-activities');
+    const tabAchievements = container.querySelector('#tab-achievements');
+
+    function showActivities(){
+      tabActivities.style.color = "#ff6600";
+      tabActivities.style.borderBottom = "2px solid #ff6600";
+      tabAchievements.style.color = "#999";
+      tabAchievements.style.borderBottom = "none";
+      profileContent.innerHTML = "";
+      if (!data.length) {
+        profileContent.innerHTML = '<div style="padding:20px; font-size:18px;">Você ainda não salvou nenhum rolê.</div>';
+        return;
+      }
+      data.forEach(route => {
         const cover = route.photos?.[0]?.url || '';
-        const card = `
-    <div class="feed-card" data-route-id="${route.route_id}">
-      <div class="feed-user-row">
-        <img class="feed-avatar" src="${avatar}">
-        <div>
-          <div class="feed-username">${username}</div>
-          <div class="feed-time">${new Date(route.created_at).toLocaleDateString()}</div>
-        </div>
-      </div>
-      <div class="feed-title">${route.title || 'Meu rolê'}</div>
-      <img class="feed-map-img" src="${cover}">
-      <div class="feed-metrics">
-        <div class="feed-metric-box"><div class="feed-metric-label">Pontos</div><div class="feed-metric-value">${route.points.length}</div></div>
-        <div class="feed-metric-box"><div class="feed-metric-label">Fotos</div><div class="feed-metric-value">${route.photos.length}</div></div>
-      </div>
-    </div>
-  `;
-        // Create element and wire click
         const temp = document.createElement('div');
-        temp.innerHTML = card.trim();
-        const cardEl = temp.firstChild;
-        cardEl.onclick = () => {
-            showPage('map');
-            loadSavedRoute(route.route_id);
-        };
-        profileContent.appendChild(cardEl);
-    });
+        temp.innerHTML = `
+          <div class="feed-card" data-route-id="${route.route_id}">
+            <div class="feed-user-row">
+              <img class="feed-avatar" src="${avatar}">
+              <div>
+                <div class="feed-username">${username}</div>
+                <div class="feed-time">${new Date(route.created_at).toLocaleDateString()}</div>
+              </div>
+            </div>
+            <div class="feed-title">${route.title || 'Meu rolê'}</div>
+            <img class="feed-map-img" src="${cover}">
+            <div class="feed-metrics">
+              <div class="feed-metric-box"><div class="feed-metric-label">Pontos</div><div class="feed-metric-value">${route.points.length}</div></div>
+              <div class="feed-metric-box"><div class="feed-metric-label">Fotos</div><div class="feed-metric-value">${route.photos.length}</div></div>
+            </div>
+          </div>`;
+        const el = temp.firstChild;
+        el.onclick = () => { showPage('map'); loadSavedRoute(route.route_id); };
+        profileContent.appendChild(el);
+      });
+    }
+
+    function showAchievements(){
+      tabActivities.style.color = "#999";
+      tabActivities.style.borderBottom = "none";
+      tabAchievements.style.color = "#ff6600";
+      tabAchievements.style.borderBottom = "2px solid #ff6600";
+      profileContent.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:10px;">
+          <div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 3px 10px rgba(0,0,0,0.06);text-align:center;">
+            <img src="https://cdn-icons-png.flaticon.com/512/940/940139.png" style="width:48px;margin-bottom:8px;">
+            <div style="font-weight:600;margin-bottom:4px;">100km Month</div>
+            <div style="font-size:12px;color:#666;">Nov 2025</div>
+          </div>
+          <div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 3px 10px rgba(0,0,0,0.06);text-align:center;">
+            <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" style="width:48px;margin-bottom:8px;">
+            <div style="font-weight:600;margin-bottom:4px;">Early Bird</div>
+            <div style="font-size:12px;color:#666;">Nov 2025</div>
+          </div>
+          <div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 3px 10px rgba(0,0,0,0.06);text-align:center;">
+            <img src="https://cdn-icons-png.flaticon.com/512/616/616554.png" style="width:48px;margin-bottom:8px;">
+            <div style="font-weight:600;margin-bottom:4px;">Climbing Pro</div>
+            <div style="font-size:12px;color:#666;">Oct 2025</div>
+          </div>
+          <div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 3px 10px rgba(0,0,0,0.06);text-align:center;">
+            <img src="https://cdn-icons-png.flaticon.com/512/833/833472.png" style="width:48px;margin-bottom:8px;">
+            <div style="font-weight:600;margin-bottom:4px;">Consistent Runner</div>
+            <div style="font-size:12px;color:#666;">Oct 2025</div>
+          </div>
+        </div>
+      `;
+    }
+
+    tabActivities.onclick = showActivities;
+    tabAchievements.onclick = showAchievements;
+
+    // start with Activities tab
+    showActivities();
 }
     </script>
     </script>
